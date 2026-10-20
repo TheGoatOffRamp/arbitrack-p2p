@@ -1,10 +1,13 @@
 'use strict';
 const path = require('path');
+const { AsyncLocalStorage } = require('async_hooks');
 const express = require('express');
 const cors = require('cors');
 
 const { Store } = require('./store');
-const { Secrets, mask } = require('./secrets');
+const { Secrets, mask, deriveKey } = require('./secrets');
+const { PgLedger, PgSecrets } = require('./db');
+const { createAuth } = require('./auth');
 const { mergeTrades, audit } = require('./ledger');
 const { buildTrade, validateTrade, isCountable, present, canonicalExchange, slug, EDITABLE_FIELDS, STATUS, dedupKey } = require('./model');
 const { rangeBoundary, DEFAULT_TZ, assertTz, toLocalMinute } = require('./dates');
@@ -15,7 +18,7 @@ const { ADAPTERS, UNSUPPORTED } = require('./exchanges/adapters');
 const { compute, toJSONSafe } = require('./accounting/engine');
 const { buildWorkbook } = require('./accounting/excel');
 
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 
 class HttpError extends Error { constructor(status, message, extra) { super(message); this.status = status; this.extra = extra; } }
 const bad = (msg, extra) => new HttpError(400, msg, extra);
@@ -23,16 +26,48 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
 
 function log(tag, msg) { if (process.env.NODE_ENV !== 'test') console.log(`[${new Date().toISOString()}] [${tag}] ${msg}`); }
 
+/**
+ * Dos modos:
+ * - local (sin `opts.pool`): un solo usuario, datos en archivos JSON, sin login (como v2.0).
+ * - multiusuario (`opts.pool` = conexión PostgreSQL): cuentas con login; cada usuario solo ve sus datos.
+ */
 function createApp(opts = {}) {
-  const dataDir = opts.dataDir || process.env.ARBITRACK_DATA_DIR || path.join(__dirname, '..', 'data');
-  const store = new Store(dataDir);
-  const secrets = new Secrets(dataDir);
+  const pool = opts.pool || null;
+  const multiUser = !!pool;
   const tz = opts.tz || DEFAULT_TZ;
   const http = { fetchImpl: opts.fetchImpl, sleepImpl: opts.sleepImpl, baseUrl: undefined, timeoutMs: opts.timeoutMs };
-  store.load();
+
+  let localStore = null, localSecrets = null, credentialKey = null;
+  if (multiUser) {
+    const secret = opts.secret ?? process.env.ARBITRACK_SECRET;
+    if (!secret || secret.length < 32) throw new Error('En modo multiusuario ARBITRACK_SECRET es obligatorio (mínimo 32 caracteres): cifra las API keys de todos los usuarios.');
+    credentialKey = deriveKey(secret);
+  } else {
+    const dataDir = opts.dataDir || process.env.ARBITRACK_DATA_DIR || path.join(__dirname, '..', 'data');
+    localStore = new Store(dataDir);
+    localSecrets = new Secrets(dataDir);
+    localStore.load();
+  }
+
+  // Las rutas usan `store` y `secrets`; cada petición los resuelve al libro y credenciales de su usuario
+  // (en modo local, los únicos que hay). Así ninguna ruta puede leer datos de otro usuario por descuido.
+  const scope = new AsyncLocalStorage();
+  const ctx = () => {
+    const c = scope.getStore();
+    if (!c) throw new Error('Petición sin usuario asociado');
+    return c;
+  };
+  const store = { read: () => ctx().store.read(), mutate: (fn) => ctx().store.mutate(fn) };
+  const secrets = {
+    all: async () => ctx().secrets.all(),
+    get: async (name) => ctx().secrets.get(name),
+    set: async (name, cred) => ctx().secrets.set(name, cred),
+    remove: async (name) => ctx().secrets.remove(name),
+  };
 
   const app = express();
   app.disable('x-powered-by');
+  if (opts.trustProxy ?? process.env.ARBITRACK_TRUST_PROXY) app.set('trust proxy', Number(opts.trustProxy ?? process.env.ARBITRACK_TRUST_PROXY) || 1);
 
   const allowed = (process.env.ARBITRACK_CORS || '').split(',').map((s) => s.trim()).filter(Boolean);
   app.use(cors({
@@ -43,13 +78,38 @@ function createApp(opts = {}) {
   }));
   app.use(express.json({ limit: '30mb' }));
 
-  const token = opts.token ?? process.env.ARBITRACK_TOKEN;
-  if (token) {
+  if (multiUser) {
+    // CSRF: además de SameSite=Lax, una petición que modifica datos debe venir de este mismo sitio.
     app.use('/api', (req, res, next) => {
-      const got = req.get('x-arbitrack-token') || (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
-      if (got !== token) return res.status(401).json({ error: 'No autorizado' });
-      next();
+      if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+      const origin = req.get('origin');
+      if (!origin) return next();
+      let host;
+      try { host = new URL(origin).host; } catch { host = null; }
+      if (host === req.get('host') || allowed.includes(origin)) return next();
+      return res.status(403).json({ error: 'Origen no permitido' });
     });
+    const auth = createAuth({
+      pool, HttpError, wrap, log, mailer: opts.mailer, limits: opts.authLimits,
+      publicUrl: opts.publicUrl ?? process.env.ARBITRACK_PUBLIC_URL,
+      secureCookies: opts.secureCookies ?? (process.env.NODE_ENV === 'production' || process.env.ARBITRACK_SECURE_COOKIES === 'true'),
+    });
+    app.use('/api/v1/auth', auth.router);
+    app.use('/api', auth.requireUser, wrap(async (req, res, next) => {
+      const ledger = await new PgLedger(pool, req.user.id).load();
+      scope.run({ store: ledger, secrets: new PgSecrets(pool, req.user.id, credentialKey) }, next);
+    }));
+  } else {
+    const token = opts.token ?? process.env.ARBITRACK_TOKEN;
+    if (token) {
+      app.use('/api', (req, res, next) => {
+        const got = req.get('x-arbitrack-token') || (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
+        if (got !== token) return res.status(401).json({ error: 'No autorizado' });
+        next();
+      });
+    }
+    app.get('/api/v1/auth/me', (req, res) => res.json({ mode: 'local', user: null }));
+    app.use('/api', (req, res, next) => scope.run({ store: localStore, secrets: localSecrets }, next));
   }
   app.use(express.static(opts.publicDir || path.join(__dirname, '..', 'public')));
 
@@ -64,29 +124,30 @@ function createApp(opts = {}) {
 
   // ── salud ──
   app.get('/health', (req, res) => {
-    const s = store.read();
-    res.json({ status: 'ok', version: VERSION, timestamp: new Date().toISOString(), tz, trades: s.trades.filter((t) => !t.deleted).length, credentialKey: secrets.keySource });
+    const base = { status: 'ok', version: VERSION, timestamp: new Date().toISOString(), tz, mode: multiUser ? 'multiuser' : 'local' };
+    if (multiUser) return res.json(base);
+    res.json({ ...base, trades: localStore.read().trades.filter((t) => !t.deleted).length, credentialKey: localSecrets.keySource });
   });
 
   // ── credenciales ──
-  app.post('/api/v1/exchange/connect', (req, res) => {
+  app.post('/api/v1/exchange/connect', wrap(async (req, res) => {
     const { exchange, apiKey, apiSecret, passphrase } = req.body || {};
     if (!exchange || !apiKey || !apiSecret) throw bad('Faltan campos: exchange, apiKey y apiSecret son obligatorios');
     const k = slug(canonicalExchange(exchange));
     if (UNSUPPORTED[k]) throw bad(UNSUPPORTED[k]);
     if (!ADAPTERS[k]) throw bad(`Exchange "${exchange}" no soportado para sincronización por API`);
     if (k === 'bitget' && !passphrase) throw bad('Bitget requiere passphrase');
-    secrets.set(k, { apiKey: String(apiKey).trim(), apiSecret: String(apiSecret).trim(), passphrase: passphrase ? String(passphrase) : undefined, connectedAt: new Date().toISOString() });
+    await secrets.set(k, { apiKey: String(apiKey).trim(), apiSecret: String(apiSecret).trim(), passphrase: passphrase ? String(passphrase) : undefined, connectedAt: new Date().toISOString() });
     log('CONNECT', `${k} conectado (${mask(apiKey)})`);
     res.json({ success: true, exchange: k });
-  });
-  app.delete('/api/v1/exchange/:exchange', (req, res) => {
-    secrets.remove(slug(canonicalExchange(req.params.exchange)));
+  }));
+  app.delete('/api/v1/exchange/:exchange', wrap(async (req, res) => {
+    await secrets.remove(slug(canonicalExchange(req.params.exchange)));
     res.json({ success: true });
-  });
-  app.get('/api/v1/exchanges', (req, res) => {
-    res.json({ exchanges: Object.entries(secrets.all()).map(([name, d]) => ({ name, connectedAt: d.connectedAt, apiKey: mask(d.apiKey) })) });
-  });
+  }));
+  app.get('/api/v1/exchanges', wrap(async (req, res) => {
+    res.json({ exchanges: Object.entries(await secrets.all()).map(([name, d]) => ({ name, connectedAt: d.connectedAt, apiKey: mask(d.apiKey) })) });
+  }));
 
   // ── sincronización (todo o nada) ──
   app.post('/api/v1/sync/:exchange', wrap(async (req, res) => {
@@ -94,7 +155,7 @@ function createApp(opts = {}) {
     if (UNSUPPORTED[k]) return res.status(400).json({ success: false, exchange: k, error: UNSUPPORTED[k] });
     const adapter = ADAPTERS[k];
     if (!adapter) throw bad(`Exchange ${req.params.exchange} no soportado`);
-    const cred = secrets.get(k);
+    const cred = await secrets.get(k);
     if (!cred) throw bad(`${k} no está conectado`);
     const { startDate, endDate, allowPartial } = req.body || {};
     const startMs = startDate ? rangeBoundary(startDate, 'start', tz) : Date.now() - 7 * 86400000;
@@ -525,7 +586,8 @@ function createApp(opts = {}) {
     res.status(status).json({ success: false, error: err.message, ...(err.extra || {}) });
   });
 
-  app.locals.store = store;
+  app.locals.store = localStore;
+  app.locals.pool = pool;
   return app;
 }
 

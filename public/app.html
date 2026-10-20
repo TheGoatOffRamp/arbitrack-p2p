@@ -887,9 +887,10 @@
       { id: "kucoin", name: "KuCoin", icon: "⟐", mode: "file", note: "Sincronización por API no disponible. Importa el archivo exportado." },
     ];
     let connected = {}; // slug -> { connectedAt, apiKey }
+    let ME = null; // usuario con sesión (modo multiusuario); null en modo local
     const SETTINGS_KEY = "arbitrack-settings";
     const settings = Object.assign({ name: "", exchange: "Binance", crypto: "USDT", fiat: "PEN", autoSync: true, autoSyncMinutes: 5 }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
-    const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { } };
+    const saveSettings = () => { try { localStorage.setItem(ME ? `${SETTINGS_KEY}:${ME.id}` : SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { } };
     let autoSyncInterval = null, lastAutoSync = null;
     const dash = { pair: "", from: "", to: "" };
 
@@ -898,6 +899,7 @@
       const r = await fetch(path, { method: opts.method || "GET", headers: opts.body !== undefined ? { "Content-Type": "application/json" } : {}, body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined });
       let d = {};
       try { d = await r.json(); } catch (e) { }
+      if (r.status === 401 && d.auth === false) { location.href = "/login.html"; throw new Error(d.error); }
       if (!r.ok) { const e = new Error(d.error || `Error HTTP ${r.status}`); e.data = d; e.status = r.status; throw e; }
       return d;
     }
@@ -1231,6 +1233,7 @@
       try {
         const res = await fetch("/api/v1/import/file", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
         r = await res.json().catch(() => ({}));
+        if (res.status === 401 && r.auth === false) { location.href = "/login.html"; return; }
         if (!res.ok && !r.status) throw new Error(r.error || `Error HTTP ${res.status}`);
       } catch (e) { job.box.innerHTML = `<b>📄 ${esc(job.file.name)}</b><div class="msg err mt">${esc(e.message)}</div>`; return; }
       renderImport(job, r);
@@ -1536,6 +1539,18 @@
       const KIND = { file: "Archivo", api: "API", migration: "Migración", "legacy-import": "Importación", manual: "Manual" };
       const batches = bat.batches.filter(b => b.kind !== "manual");
       $("pg-settings").innerHTML = `<h2 class="h1 mb2">Configuración</h2>
+        ${ME ? `<div class="card mb"><div class="h2">Cuenta</div>
+          <p style="font-size:13px;margin-bottom:12px">Sesión iniciada como <b>${esc(ME.email)}</b></p>
+          <div class="g4" style="gap:12px">
+            <div><div class="lb">Contraseña actual</div><input class="inp" type="password" id="s-pw0" autocomplete="current-password"></div>
+            <div><div class="lb">Nueva contraseña (mín. 10)</div><input class="inp" type="password" id="s-pw1" autocomplete="new-password"></div>
+          </div>
+          <div class="fxe mt" style="gap:8px">
+            <button class="btn btn-d" onclick="deleteAccount()">Eliminar mi cuenta</button>
+            <button class="btn btn-s" onclick="changePassword()">Cambiar contraseña</button>
+            <button class="btn btn-p" onclick="logout()">Cerrar sesión</button>
+          </div>
+        </div>` : ""}
         <div class="card mb"><div class="h2">Perfil y valores por defecto</div>
           <div class="g4" style="gap:12px">
             <div><div class="lb">Tu nombre (aparece en el Excel)</div><input class="inp" id="s-name" value="${esc(settings.name)}" placeholder="Nombre o razón social"></div>
@@ -1557,6 +1572,23 @@
     function saveProfile() {
       settings.name = $("s-name").value.trim(); settings.exchange = $("s-ex").value; settings.crypto = $("s-cr").value; settings.fiat = $("s-fi").value;
       saveSettings(); nav(); toast("Configuración guardada");
+      if (ME) api("/api/v1/auth/me", { method: "PUT", body: { name: settings.name } }).catch(e => toast(e.message, "err"));
+    }
+    async function logout() {
+      try { await api("/api/v1/auth/logout", { method: "POST" }); } catch (e) { }
+      location.href = "/login.html";
+    }
+    async function changePassword() {
+      try {
+        await api("/api/v1/auth/password/change", { method: "POST", body: { currentPassword: $("s-pw0").value, newPassword: $("s-pw1").value } });
+        $("s-pw0").value = $("s-pw1").value = ""; toast("Contraseña actualizada. Se cerraron tus otras sesiones.");
+      } catch (e) { toast(e.message, "err"); }
+    }
+    async function deleteAccount() {
+      const password = prompt("Esto borra tu cuenta, todas tus operaciones y tus API keys. No se puede deshacer.\n\nEscribe tu contraseña para confirmar:");
+      if (!password) return;
+      try { await api("/api/v1/auth/account", { method: "DELETE", body: { password } }); location.href = "/"; }
+      catch (e) { toast(e.message, "err"); }
     }
     async function undoBatch(id) {
       if (!confirm("¿Deshacer este lote?")) return;
@@ -1611,10 +1643,18 @@
       nav();
       try {
         const h = await api("/health");
-        $("backend-status").textContent = `Backend v${h.version} · ${h.trades} ops`;
+        const me = await api("/api/v1/auth/me");
+        ME = me.user;
+        if (ME) {
+          // Preferencias guardadas en este navegador, separadas por cuenta.
+          try { Object.assign(settings, JSON.parse(localStorage.getItem(`${SETTINGS_KEY}:${ME.id}`)) || {}); } catch (e) { }
+          if (!settings.name && ME.name) settings.name = ME.name;
+        }
+        $("backend-status").textContent = ME ? ME.email : `Backend v${h.version} · ${h.trades} ops`;
       } catch (e) {
+        if (e.status === 401) return;
         $("backend-status").textContent = "Sin conexión al backend";
-        $("pg-dashboard").innerHTML = `<div class="card empty"><div class="msg err">No se pudo conectar con el backend. Verifica que <b>npm start</b> esté corriendo y recarga la página.</div></div>`;
+        $("pg-dashboard").innerHTML = `<div class="card empty"><div class="msg err">No se pudo conectar con el servidor. Recarga la página en unos segundos.</div></div>`;
         return;
       }
       await Promise.all([loadTrades().catch(e => toast(e.message, "err")), loadConnected()]);

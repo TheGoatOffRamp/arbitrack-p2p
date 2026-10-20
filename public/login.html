@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArbiTrack — Iniciar sesión</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060a13;--card:#0c1120;--green:#10b981;--emerald:#34d399;--red:#f87171;--slate:#94a3b8;--dim:#475569;--txt:#f1f5f9;--border:rgba(255,255,255,0.06)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+a{color:var(--emerald);text-decoration:none}
+.box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:36px;width:100%;max-width:420px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;margin-bottom:24px;justify-content:center}
+.logo svg{width:36px;height:36px}
+h2{font-size:22px;font-weight:800;margin-bottom:6px;text-align:center}
+.sub{font-size:13px;color:var(--slate);margin-bottom:24px;text-align:center}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.field input{width:100%;padding:11px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--txt);font-size:14px;outline:none;font-family:inherit}
+.field input:focus{border-color:rgba(16,185,129,0.4)}
+.btn{width:100%;padding:13px;border-radius:10px;background:var(--green);color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;margin-top:8px;font-family:inherit}
+.btn:hover{background:var(--emerald)}
+.btn:disabled{opacity:0.6;cursor:wait}
+.msg{font-size:13px;padding:10px 12px;border-radius:10px;margin-bottom:14px;display:none}
+.msg.err{display:block;background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2)}
+.msg.ok{display:block;background:rgba(16,185,129,0.1);color:var(--emerald);border:1px solid rgba(16,185,129,0.2)}
+.links{display:flex;justify-content:space-between;gap:12px;margin-top:18px;font-size:13px;flex-wrap:wrap}
+.legal{font-size:11px;color:var(--dim);margin-top:18px;text-align:center;line-height:1.5}
+form{display:none}
+form.on{display:block}
+</style>
+</head>
+<body>
+<div class="box">
+  <a class="logo" href="/" style="color:var(--txt)">
+    <svg viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#10b981" fill-opacity="0.15"/><path d="M12 28L20 12L28 28" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 22H25" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"/><circle cx="20" cy="16" r="2" fill="#10b981"/></svg>
+    ArbiTrack
+  </a>
+  <div id="msg" class="msg"></div>
+
+  <form id="f-login" class="on">
+    <h2>Iniciar sesión</h2>
+    <p class="sub">Tus operaciones P2P, listas para tu contador.</p>
+    <div class="field"><label for="l-email">Email</label><input id="l-email" type="email" autocomplete="email" required></div>
+    <div class="field"><label for="l-pw">Contraseña</label><input id="l-pw" type="password" autocomplete="current-password" required></div>
+    <button class="btn" type="submit">Entrar</button>
+    <div class="links"><a href="#registro">Crear una cuenta</a><a href="#olvido">¿Olvidaste tu contraseña?</a></div>
+  </form>
+
+  <form id="f-register">
+    <h2>Crear cuenta</h2>
+    <p class="sub">Gratis. Solo necesitas un email.</p>
+    <div class="field"><label for="r-name">Nombre o razón social</label><input id="r-name" autocomplete="name"></div>
+    <div class="field"><label for="r-email">Email</label><input id="r-email" type="email" autocomplete="email" required></div>
+    <div class="field"><label for="r-pw">Contraseña (mínimo 10 caracteres)</label><input id="r-pw" type="password" autocomplete="new-password" minlength="10" required></div>
+    <button class="btn" type="submit">Crear cuenta</button>
+    <div class="links"><a href="#">Ya tengo cuenta</a></div>
+    <p class="legal">Tus operaciones y API keys solo son visibles para tu cuenta. Las API keys se guardan cifradas; usa siempre keys de <b>solo lectura</b>.</p>
+  </form>
+
+  <form id="f-forgot">
+    <h2>Recuperar contraseña</h2>
+    <p class="sub">Te enviaremos un enlace a tu email.</p>
+    <div class="field"><label for="o-email">Email</label><input id="o-email" type="email" autocomplete="email" required></div>
+    <button class="btn" type="submit">Enviar enlace</button>
+    <div class="links"><a href="#">Volver</a></div>
+  </form>
+
+  <form id="f-reset">
+    <h2>Nueva contraseña</h2>
+    <p class="sub">Elige una contraseña de al menos 10 caracteres.</p>
+    <div class="field"><label for="n-pw">Nueva contraseña</label><input id="n-pw" type="password" autocomplete="new-password" minlength="10" required></div>
+    <button class="btn" type="submit">Guardar y entrar</button>
+  </form>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const resetToken = new URLSearchParams(location.search).get("reset");
+
+  function show() {
+    const view = resetToken ? "reset" : ({ "#registro": "register", "#olvido": "forgot" })[location.hash] || "login";
+    for (const f of document.querySelectorAll("form")) f.classList.toggle("on", f.id === `f-${view}`);
+    msg("");
+  }
+  function msg(text, kind = "err") { const m = $("msg"); m.textContent = text; m.className = text ? `msg ${kind}` : "msg"; }
+
+  async function post(path, body) {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || `Error ${r.status}`);
+    return d;
+  }
+
+  function handle(id, fn) {
+    $(id).addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const btn = ev.target.querySelector("button");
+      btn.disabled = true; msg("");
+      try { await fn(); } catch (e) { msg(e.message); } finally { btn.disabled = false; }
+    });
+  }
+
+  handle("f-login", async () => {
+    await post("/api/v1/auth/login", { email: $("l-email").value, password: $("l-pw").value });
+    location.href = "/app.html";
+  });
+  handle("f-register", async () => {
+    await post("/api/v1/auth/register", { name: $("r-name").value, email: $("r-email").value, password: $("r-pw").value });
+    location.href = "/app.html";
+  });
+  handle("f-forgot", async () => {
+    const d = await post("/api/v1/auth/password/forgot", { email: $("o-email").value });
+    msg(d.message, "ok");
+  });
+  handle("f-reset", async () => {
+    await post("/api/v1/auth/password/reset", { token: resetToken, newPassword: $("n-pw").value });
+    location.href = "/app.html";
+  });
+
+  window.addEventListener("hashchange", show);
+  show();
+  // Si ya hay sesión (o el servidor está en modo local), ir directo a la app.
+  if (!resetToken) fetch("/api/v1/auth/me").then((r) => { if (r.ok) location.replace("/app.html"); }).catch(() => {});
+</script>
+</body>
+</html>

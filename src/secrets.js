@@ -5,13 +5,32 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const deriveKey = (secret) => crypto.createHash('sha256').update(secret).digest();
+
+// `aad` liga el texto cifrado a su dueño: una caja copiada a otro usuario no se descifra.
+function encryptBox(key, obj, aad) {
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv('aes-256-gcm', key, iv);
+  if (aad) c.setAAD(Buffer.from(aad, 'utf8'));
+  const data = Buffer.concat([c.update(JSON.stringify(obj), 'utf8'), c.final()]);
+  return { iv: iv.toString('base64'), tag: c.getAuthTag().toString('base64'), data: data.toString('base64') };
+}
+
+function decryptBox(key, box, aad) {
+  const d = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(box.iv, 'base64'));
+  if (aad) d.setAAD(Buffer.from(aad, 'utf8'));
+  d.setAuthTag(Buffer.from(box.tag, 'base64'));
+  return JSON.parse(Buffer.concat([d.update(Buffer.from(box.data, 'base64')), d.final()]).toString('utf8'));
+}
+
 class Secrets {
-  constructor(dir) {
+  /** `opts.secret`: clave explícita; `null` fuerza el archivo data/.key aunque exista ARBITRACK_SECRET. */
+  constructor(dir, opts = {}) {
     this.file = path.join(dir, 'credentials.enc.json');
     this.legacyFile = path.join(dir, 'credentials.json');
-    const envSecret = process.env.ARBITRACK_SECRET;
+    const envSecret = opts.secret !== undefined ? opts.secret : process.env.ARBITRACK_SECRET;
     if (envSecret) {
-      this.key = crypto.createHash('sha256').update(envSecret).digest();
+      this.key = deriveKey(envSecret);
       this.keySource = 'env';
     } else {
       const kf = path.join(dir, '.key');
@@ -22,18 +41,8 @@ class Secrets {
     this.migrateLegacy();
   }
 
-  encrypt(obj) {
-    const iv = crypto.randomBytes(12);
-    const c = crypto.createCipheriv('aes-256-gcm', this.key, iv);
-    const data = Buffer.concat([c.update(JSON.stringify(obj), 'utf8'), c.final()]);
-    return { iv: iv.toString('base64'), tag: c.getAuthTag().toString('base64'), data: data.toString('base64') };
-  }
-
-  decrypt(box) {
-    const d = crypto.createDecipheriv('aes-256-gcm', this.key, Buffer.from(box.iv, 'base64'));
-    d.setAuthTag(Buffer.from(box.tag, 'base64'));
-    return JSON.parse(Buffer.concat([d.update(Buffer.from(box.data, 'base64')), d.final()]).toString('utf8'));
-  }
+  encrypt(obj) { return encryptBox(this.key, obj); }
+  decrypt(box) { return decryptBox(this.key, box); }
 
   all() {
     if (!fs.existsSync(this.file)) return {};
@@ -65,4 +74,4 @@ class Secrets {
 
 const mask = (s) => (s ? `${String(s).slice(0, 4)}…${String(s).slice(-4)}` : null);
 
-module.exports = { Secrets, mask };
+module.exports = { Secrets, mask, deriveKey, encryptBox, decryptBox };

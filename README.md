@@ -1,13 +1,49 @@
-# ArbiTrack P2P — Backend v2.0
+# ArbiTrack P2P — v2.1 (multiusuario)
 
 Registro, seguimiento y control contable de operaciones de arbitraje P2P entre exchanges y monedas.
 
 ```bash
 npm install
 npm start          # http://localhost:3001  (solo esta computadora)
-npm test           # 48 pruebas: unitarias, contables, importación, APIs, HTTP, volumen
+npm test           # 56 pruebas (+10 del modo multiusuario con TEST_DATABASE_URL)
 npm run ejemplo    # genera examples/ArbiTrack_ejemplo.xlsx con datos ficticios
 ```
+
+## Modo multiusuario (web pública) — novedad v2.1
+
+Si se define `DATABASE_URL`, ArbiTrack funciona como una web con cuentas: cada persona se registra con email y contraseña
+y **solo ve sus propias operaciones, ciclos, costos, importaciones y API keys**. Sin `DATABASE_URL` sigue funcionando
+exactamente como la versión local de un solo usuario.
+
+```bash
+cp .env.example .env              # completar DATABASE_URL y ARBITRACK_SECRET
+DATABASE_URL=postgres://... ARBITRACK_SECRET=<32+ caracteres> npm start
+# Pruebas del modo multiusuario (base de datos desechable, se vacía):
+TEST_DATABASE_URL=postgres://.../arbitrack_test npm test
+```
+
+| Qué | Cómo |
+|---|---|
+| Datos | PostgreSQL. Tabla `ledgers`: un libro por usuario con el mismo formato que `ledger.json`, así el motor FIFO, los importadores y el Excel no cambian. Cada cambio es una transacción con bloqueo de fila (todo o nada, sin pisarse). Las tablas se crean solas al arrancar (`src/db.js`). |
+| Aislamiento | Todas las rutas `/api` exigen sesión y trabajan sobre el libro del usuario de esa sesión (`AsyncLocalStorage` en `src/app.js`): no hay forma de pedir datos de otro usuario. La deduplicación es por usuario. |
+| Cuentas | `src/auth.js`: registro, inicio/cierre de sesión, cambio y recuperación de contraseña por email, baja de la cuenta (borra todos sus datos). Contraseñas con scrypt; sesiones en cookie `HttpOnly`, `SameSite=Lax` (y `Secure` en producción) guardando en la base solo el hash del token. |
+| API keys | Cifradas con AES-256-GCM (`ARBITRACK_SECRET`) y ligadas al id del usuario: una clave copiada a otra cuenta no se puede descifrar. |
+| Protecciones | Límite de intentos de inicio de sesión, registro y recuperación; rechazo de peticiones que modifican datos desde otro sitio (CSRF); `/health` no expone datos. |
+| Interfaz | `public/login.html` (entrar, crear cuenta, recuperar contraseña). `app.html` redirige al login si no hay sesión y tiene la sección **Cuenta** en Configuración. |
+
+**Pasar tus datos de la versión local a tu cuenta web** (después de registrarte):
+
+```bash
+DATABASE_URL=... ARBITRACK_SECRET=... npm run importar-local -- --email tu@correo.com --data ./data
+```
+
+Rutas nuevas: `POST /api/v1/auth/register` · `login` · `logout` · `GET/PUT /api/v1/auth/me` · `POST /api/v1/auth/password/change` ·
+`password/forgot` · `password/reset` · `DELETE /api/v1/auth/account`.
+
+> Pendiente para publicar (paso 4 del plan): configurar un servicio de email (hoy los enlaces de recuperación se escriben en el log del servidor),
+> hosting con HTTPS y respaldos de la base de datos, y política de privacidad / términos de uso (Ley 29733).
+
+---
 
 Al primer arranque, si existe `data/trades.json` del backend anterior, se **migra automáticamente**
 (copia de respaldo `data/trades.legacy-<fecha>.json`) y las credenciales en texto plano se cifran.
@@ -169,6 +205,12 @@ Fechas como fechas reales de Excel en hora de Lima, importes como números, filt
 | `ARBITRACK_TZ` | America/Lima | Zona horaria de presentación |
 | `ARBITRACK_DATA_DIR` | `./data` | Carpeta de datos |
 | `ARBITRACK_CORS` | localhost | Orígenes permitidos adicionales (coma) |
+| `DATABASE_URL` | — | PostgreSQL. Si está definida, activa el **modo multiusuario** (y `HOST` pasa a `0.0.0.0`) |
+| `ARBITRACK_SECRET` | — | En modo multiusuario es **obligatoria** (mín. 32 caracteres). No la cambies: sin ella no se pueden descifrar las API keys guardadas |
+| `ARBITRACK_PUBLIC_URL` | — | URL pública (para los enlaces de recuperación de contraseña) |
+| `ARBITRACK_TRUST_PROXY` | — | `1` si la web está detrás del proxy del hosting (IP real del usuario para los límites de intentos) |
+| `NODE_ENV` | — | `production` activa cookies `Secure` (solo HTTPS) |
+| `PGSSL` | — | `true` para conectar a PostgreSQL con SSL |
 
 ## 7. Estructura
 
@@ -181,6 +223,9 @@ src/money.js                 aritmética decimal exacta
 src/store.js · ledger.js     almacenamiento atómico, deduplicación, historial
 src/migrate.js               migración desde v1.3
 src/secrets.js               credenciales cifradas
+src/db.js                    PostgreSQL: migraciones, libro y credenciales por usuario
+src/auth.js                  cuentas, sesiones, recuperación de contraseña
+scripts/importar-datos-locales.js   pasar data/ local a una cuenta web
 src/importers/               lectura CSV/XLSX, perfiles por exchange, análisis
 src/exchanges/               clientes API (Binance, Bybit, Bitget) con reintentos
 src/accounting/engine.js     motor FIFO, ciclos, conciliación
