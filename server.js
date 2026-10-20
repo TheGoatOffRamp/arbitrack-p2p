@@ -17,7 +17,15 @@ async function main() {
   if (multiUser) {
     const { createPool, migrate } = require('./src/db');
     pool = createPool();
-    await migrate(pool);
+    // Recién creada (o tras un mantenimiento) la base de datos puede tardar unos minutos en aceptar conexiones.
+    for (let attempt = 1; ; attempt++) {
+      try { await migrate(pool); break; } catch (e) {
+        const transient = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET', '57P03'].includes(e.code);
+        if (!transient || attempt >= 30) throw e;
+        console.warn(`Base de datos no disponible (${e.code}); reintento ${attempt}/30 en 10 s…`);
+        await new Promise((r) => setTimeout(r, 10000));
+      }
+    }
   }
   const app = createApp({ pool });
   const server = app.listen(PORT, HOST, () => {
