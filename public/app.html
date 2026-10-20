@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ArbiTrack - P2P Arbitrage Pro</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    /* ====== ESTILOS (sin cambios) ====== */
+    :root {
+      --bg: #060a13;
+      --card: rgba(12, 17, 32, 0.8);
+      --border: rgba(255, 255, 255, 0.06);
+      --txt: #f1f5f9;
+      --muted: #94a3b8;
+      --dim: #475569;
+      --green: #10b981;
+      --blue: #3b82f6;
+      --purple: #6366f1;
+      --yellow: #eab308;
+      --red: #ef4444
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      scrollbar-width: thin;
+      scrollbar-color: #1e293b transparent
+    }
+
+    *::-webkit-scrollbar {
+      width: 6px
+    }
+
+    *::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    *::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 3px
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      font-size: 13px;
+      line-height: 1.5
+    }
+
+    input,
+    select,
+    button {
+      font-family: inherit;
+      font-size: 13px
+    }
+
+    input:focus,
+    select:focus {
+      border-color: rgba(16, 185, 129, 0.3) !important;
+      outline: none
+    }
+
+    .side {
+      width: 220px;
+      background: linear-gradient(180deg, #0c1120, #060a13);
+      border-right: 1px solid var(--border);
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column
+    }
+
+    .logo {
+      padding: 20px 16px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .logo h1 {
+      font-size: 20px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #10b981, #3b82f6, #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent
+    }
+
+    .logo p {
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 2px
+    }
+
+    .nav {
+      padding: 12px 10px;
+      flex: 1;
+      overflow-y: auto
+    }
+
+    .ni {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 12px;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: all .2s;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 400;
+      border: 1px solid transparent;
+      margin-bottom: 3px;
+      user-select: none
+    }
+
+    .ni:hover {
+      background: rgba(255, 255, 255, 0.03)
+    }
+
+    .ni.on {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--green);
+      font-weight: 600;
+      border-color: rgba(16, 185, 129, 0.15)
+    }
+
+    .ni svg {
+      flex-shrink: 0
+    }
+
+    .ni .dot {
+      margin-left: auto;
+      width: 7px;
+      height: 7px;
+      border-radius: 4px;
+      background: var(--green);
+      flex-shrink: 0
+    }
+
+    .side-apis {
+      padding: 8px 10px;
+      border-top: 1px solid var(--border)
+    }
+
+    .side-apis-box {
+      background: rgba(16, 185, 129, 0.06);
+      border-radius: 8px;
+      padding: 7px 10px;
+      border: 1px solid rgba(16, 185, 129, 0.1)
+    }
+
+    .side-apis-box h4 {
+      font-size: 10px;
+      color: var(--green);
+      font-weight: 700;
+      margin-bottom: 3px
+    }
+
+    .side-apis-box .api-name {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 4px
+    }
+
+    .side-apis-box .api-name::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 3px;
+      background: var(--green);
+      flex-shrink: 0
+    }
+
+    .main {
+      margin-left: 220px;
+      padding: 22px 24px;
+      min-height: 100vh
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 18px;
+      backdrop-filter: blur(10px)
+    }
+
+    .h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f1f5f9
+    }
+
+    .h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 12px
+    }
+
+    .lb {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 6px
+    }
+
+    .inp {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: var(--txt);
+      width: 100%;
+      box-sizing: border-box
+    }
+
+    .sel {
+      background: #0c1120;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: var(--txt);
+      width: 100%;
+      box-sizing: border-box;
+      cursor: pointer
+    }
+
+    .sel option {
+      background: #0c1120;
+      color: #f1f5f9;
+      padding: 8px 12px
+    }
+
+    .inp-green {
+      background: rgba(16, 185, 129, 0.06);
+      border-color: rgba(16, 185, 129, 0.15)
+    }
+
+    .btn {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 16px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .2s;
+      white-space: nowrap;
+      font-weight: 600
+    }
+
+    .btn-p {
+      background: linear-gradient(135deg, #10b981, #34d399);
+      color: #fff;
+      font-weight: 700
+    }
+
+    .btn-s {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--txt)
+    }
+
+    .btn-d {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red)
+    }
+
+    .btn-g {
+      background: transparent;
+      color: var(--muted);
+      padding: 6px
+    }
+
+    .btn-ok {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--green)
+    }
+
+    .btn:hover {
+      opacity: .9
+    }
+
+    .btn-full {
+      width: 100%;
+      justify-content: center
+    }
+
+    .bg {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      gap: 4px
+    }
+
+    .g2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px
+    }
+
+    .g3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px
+    }
+
+    .g4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 12px
+    }
+
+    .g6 {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px
+    }
+
+    .fx {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .fxb {
+      display: flex;
+      justify-content: space-between;
+      align-items: center
+    }
+
+    .fxw {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px
+    }
+
+    .fxe {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px
+    }
+
+    .mt {
+      margin-top: 14px
+    }
+
+    .mb {
+      margin-bottom: 14px
+    }
+
+    .mb2 {
+      margin-bottom: 22px
+    }
+
+    .gs2 {
+      grid-column: span 2
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse
+    }
+
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .3px
+    }
+
+    td {
+      padding: 10px 12px;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03)
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02)
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    .tg-group {
+      display: flex;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      padding: 3px;
+      margin-bottom: 18px
+    }
+
+    .tg-btn {
+      flex: 1;
+      padding: 10px 0;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      transition: all .2s;
+      background: transparent;
+      color: var(--dim)
+    }
+
+    .tg-btn.buy {
+      background: rgba(59, 130, 246, 0.2);
+      color: var(--blue)
+    }
+
+    .tg-btn.sell {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--green)
+    }
+
+    .ov {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: none;
+      justify-content: center;
+      align-items: center
+    }
+
+    .ov.open {
+      display: flex
+    }
+
+    .ml {
+      background: #0c1120;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 26px;
+      width: 100%;
+      max-width: 560px;
+      max-height: 90vh;
+      overflow-y: auto
+    }
+
+    .sc {
+      padding: 18px;
+      border-radius: 13px;
+      position: relative;
+      overflow: hidden
+    }
+
+    .sc .gw {
+      position: absolute;
+      top: -30px;
+      right: -30px;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%
+    }
+
+    .sc .slb {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 8px
+    }
+
+    .sc .sv {
+      font-size: 23px;
+      font-weight: 800;
+      color: #f8fafc
+    }
+
+    .sc .ss {
+      font-size: 11px;
+      color: var(--dim);
+      margin-top: 4px
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      animation: sup .3s ease
+    }
+
+    .toast.on {
+      display: flex
+    }
+
+    .toast.ok {
+      background: rgba(16, 185, 129, 0.95);
+      color: #fff
+    }
+
+    .toast.err {
+      background: rgba(239, 68, 68, 0.95);
+      color: #fff
+    }
+
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 200;
+      width: 56px;
+      height: 56px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, #10b981, #34d399);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 32px rgba(16, 185, 129, 0.3);
+      transition: transform .2s
+    }
+
+    .fab:hover {
+      transform: scale(1.1)
+    }
+
+    .fab svg {
+      width: 22px;
+      height: 22px
+    }
+
+    .qp {
+      position: fixed;
+      bottom: 90px;
+      right: 24px;
+      z-index: 250;
+      width: 390px;
+      background: #0c1120;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      display: none
+    }
+
+    .qp.open {
+      display: block
+    }
+
+    .pg {
+      display: none
+    }
+
+    .pg.on {
+      display: block
+    }
+
+    .ibox {
+      padding: 14px;
+      border-radius: 8px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start
+    }
+
+    .ibox .iw {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0
+    }
+
+    .sync-box {
+      background: rgba(59, 130, 246, 0.05);
+      border: 1px solid rgba(59, 130, 246, 0.1);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px
+    }
+
+    .sync-box h4 {
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px
+    }
+
+    .quick-btns {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px
+    }
+
+    .quick-btns button {
+      padding: 4px 10px;
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 6px
+    }
+
+    .conn-banner {
+      padding: 10px 16px;
+      border-radius: 13px;
+      background: linear-gradient(90deg, rgba(16, 185, 129, 0.06), rgba(59, 130, 246, 0.04));
+      border: 1px solid rgba(16, 185, 129, 0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    @keyframes sup {
+      from {
+        transform: translateX(-50%) translateY(20px);
+        opacity: 0
+      }
+
+      to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1
+      }
+    }
+    /* ====== AÑADIDOS v2 (mismo estilo) ====== */
+    .msg { padding: 10px 14px; border-radius: 9px; font-size: 12px; line-height: 1.6; margin-bottom: 10px; border: 1px solid }
+    .msg.err { background: rgba(239, 68, 68, 0.07); border-color: rgba(239, 68, 68, 0.2); color: #fca5a5 }
+    .msg.warn { background: rgba(234, 179, 8, 0.07); border-color: rgba(234, 179, 8, 0.2); color: #fde68a }
+    .msg.ok { background: rgba(16, 185, 129, 0.07); border-color: rgba(16, 185, 129, 0.2); color: #6ee7b7 }
+    .msg.info { background: rgba(59, 130, 246, 0.06); border-color: rgba(59, 130, 246, 0.15); color: #bfdbfe }
+    .kv { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; font-size: 12px }
+    .kv > div:nth-child(odd) { color: var(--muted) }
+    .kv > div:nth-child(even) { text-align: right; font-weight: 600 }
+    .num { text-align: right; font-family: 'JetBrains Mono', monospace; white-space: nowrap }
+    .ml.wide { max-width: 980px }
+    .scroll-y { max-height: 340px; overflow-y: auto }
+    .drop { border: 2px dashed rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 34px 20px; text-align: center; cursor: pointer; transition: all .2s }
+    .drop.over, .drop:hover { border-color: rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.03) }
+    .ni .cnt { margin-left: auto; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px; background: rgba(234, 179, 8, 0.15); color: var(--yellow) }
+    .empty { text-align: center; color: #475569; padding: 36px }
+    th.num { text-align: right }
+    @media (max-width: 900px) {
+      .side { width: 64px } .side .logo p, .side .logo h1, .side-apis, .ni span.lbl, #user-box-text { display: none }
+      .main { margin-left: 64px; padding: 16px } .g3, .g4, .g6 { grid-template-columns: 1fr 1fr } .g2 { grid-template-columns: 1fr }
+      .qp { width: calc(100vw - 32px); right: 16px }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ====== SVG SPRITE ====== -->
+  <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-dash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+      <polyline points="16 7 22 7 22 13" />
+    </symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="16" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+    </symbol>
+    <symbol id="i-calc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="4" y="2" width="16" height="20" rx="2" />
+      <line x1="8" y1="6" x2="16" y2="6" />
+      <line x1="8" y1="10" x2="10" y2="10" />
+      <line x1="14" y1="10" x2="16" y2="10" />
+      <line x1="8" y1="14" x2="10" y2="14" />
+      <line x1="14" y1="14" x2="16" y2="14" />
+    </symbol>
+    <symbol id="i-api" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 2L2 7l10 5 10-5-10-5z" />
+      <path d="M2 17l10 5 10-5" />
+      <path d="M2 12l10 5 10-5" />
+    </symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="3" />
+      <path
+        d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+    </symbol>
+    <symbol id="i-dl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+    </symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </symbol>
+    <symbol id="i-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="20 6 9 17 4 12" />
+    </symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </symbol>
+    <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+    </symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="23 4 23 10 17 10" />
+      <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+    </symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4M12 8h.01" />
+    </symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
+    </symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </symbol>
+    <symbol id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="12" y1="19" x2="12" y2="5" />
+      <polyline points="5 12 12 5 19 12" />
+    </symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </symbol>
+  </svg>
+  <!-- ====== SIDEBAR ====== -->
+  <aside class="side">
+    <div class="logo">
+      <a href="/" style="display:flex;align-items:center;gap:8px" title="Volver al inicio">
+        <svg viewBox="0 0 40 40" fill="none" width="28" height="28">
+          <rect width="40" height="40" rx="10" fill="#10b981" fill-opacity="0.15" />
+          <path d="M12 28L20 12L28 28" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M15 22H25" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" />
+          <circle cx="20" cy="16" r="2" fill="#10b981" />
+        </svg>
+        <h1>ArbiTrack</h1>
+      </a>
+      <p>P2P Arbitrage Pro</p>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-apis" id="side-apis" style="display:none">
+      <div class="side-apis-box">
+        <h4>APIS CONECTADAS</h4>
+        <div id="side-api-list"></div>
+      </div>
+    </div>
+    <div style="padding:10px;border-top:1px solid var(--border)">
+      <div onclick="go('settings')" title="Configuración" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px">
+        <div style="width:28px;height:28px;border-radius:7px;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;color:#818cf8;font-size:12px;font-weight:800;flex-shrink:0" id="user-avatar">A</div>
+        <div style="flex:1;min-width:0" id="user-box-text">
+          <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="user-name">ArbiTrack</div>
+          <div style="font-size:10px;color:var(--dim)" id="backend-status">Conectando…</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ====== MAIN ====== -->
+  <main class="main">
+    <div id="pg-dashboard" class="pg on"></div>
+    <div id="pg-trades" class="pg"></div>
+    <div id="pg-calculator" class="pg"></div>
+    <div id="pg-api" class="pg"></div>
+    <div id="pg-issues" class="pg"></div>
+    <div id="pg-settings" class="pg"></div>
+  </main>
+
+  <!-- ====== FAB / QUICK PANEL ====== -->
+  <button class="fab" id="fab" onclick="toggleQuick()" title="Registro rápido"><svg width="22" height="22"><use href="#i-bolt" /></svg></button>
+  <div class="qp" id="qp"></div>
+
+  <!-- ====== TOAST ====== -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ====== MODAL ====== -->
+  <div class="ov" id="ov" onclick="if(event.target===this)closeForm()">
+    <div class="ml" id="ml"></div>
+  </div>
+
+  <input type="file" id="import-file" accept=".csv,.txt,.xlsx" multiple style="display:none" onchange="handleImportFile(this)">
+
+  <script>
+    'use strict';
+    // ==================== HELPERS ====================
+    const $ = id => document.getElementById(id);
+    const ic = (id, w = 18) => `<svg width="${w}" height="${w}"><use href="#i-${id}"/></svg>`;
+    const TZ = 'America/Lima';
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const nf = (v, min = 2, max = 2) => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('es-PE', { minimumFractionDigits: min, maximumFractionDigits: max }) : '—'; };
+    const SYM = { PEN: 'S/', USD: '$', EUR: '€', ARS: 'AR$', BRL: 'R$', COP: 'COL$', MXN: 'MX$', VES: 'Bs.', CLP: 'CLP$', BOB: 'Bs' };
+    // Importe fiat con el símbolo de SU moneda (nunca se asume otra moneda)
+    const fc = (v, c) => { const n = Number(v) || 0; return `${n < 0 ? '−' : ''}${SYM[c] || (c ? c + ' ' : '')} ${nf(Math.abs(n))}`; };
+    const fq = v => nf(v, 2, 8);      // cantidades cripto sin perder decimales
+    const fp = v => nf(v, 4, 6);      // precios
+    const fd = iso => new Date(iso).toLocaleString('es-PE', { timeZone: TZ, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+    const limaDay = (d = new Date()) => new Date(d).toLocaleDateString('en-CA', { timeZone: TZ });
+    const daysAgo = n => limaDay(Date.now() - n * 86400000);
+    // "YYYY-MM-DDTHH:mm" en hora de Lima (para inputs datetime-local)
+    function limaInput(d = new Date()) {
+      const p = {}; new Intl.DateTimeFormat('en-US', { timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(d).forEach(x => p[x.type] = x.value);
+      return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+    }
+    const PM = { PEN: ["Yape", "Plin", "BCP (Banco de Crédito)", "Interbank", "BBVA Perú", "Scotiabank Perú", "Banco de la Nación", "BanBif", "Lemon Cash Perú", "BIM", "MiBanco", "Caja Huancayo", "Transferencia Bancaria", "Efectivo", "Otro"], ARS: ["Mercado Pago", "Brubank", "Ualá", "Banco Galicia", "BBVA Argentina", "Banco Nación", "Lemon Cash", "Transferencia Bancaria", "Efectivo", "Otro"], BRL: ["Pix", "Nubank", "Banco do Brasil", "Itaú", "Bradesco", "Inter", "C6 Bank", "Transferencia Bancaria", "Efectivo", "Otro"], COP: ["Nequi", "Daviplata", "Bancolombia", "Banco de Bogotá", "Davivienda", "Transferencia Bancaria", "Efectivo", "Otro"], MXN: ["SPEI", "Mercado Pago", "BBVA México", "Banorte", "Nu México", "Transferencia Bancaria", "Efectivo", "Otro"], VES: ["Pago Móvil", "Banesco", "Banco de Venezuela", "Zinli", "Zelle", "Transferencia Bancaria", "Efectivo", "Otro"], USD: ["Zelle", "PayPal", "Wise", "Payoneer", "Transferencia Bancaria", "Efectivo", "Otro"], EUR: ["Wise", "Revolut", "N26", "PayPal", "SEPA", "Transferencia Bancaria", "Efectivo", "Otro"] };
+    const gpm = f => PM[f] || PM.USD;
+    const EX = ["Binance", "Bybit", "OKX", "Bitget", "El Dorado", "KuCoin", "Gate.io", "MEXC", "HTX", "BingX", "Crypto.com", "AirTM", "Lemon Cash", "Buda.com", "Buenbit", "Otro"];
+    const CR = ["USDT", "USDC", "BTC", "ETH", "BNB", "SOL", "XRP", "TRX", "MATIC"];
+    const FI = ["PEN", "USD", "EUR", "ARS", "BRL", "COP", "MXN", "VES"];
+    // opciones de un <select>; si el valor actual no está en la lista, se agrega (evita cambiarlo al editar)
+    const opts = (arr, sel) => { const list = sel && !arr.includes(sel) ? [sel, ...arr] : arr; return list.map(x => `<option${x === sel ? " selected" : ""}>${esc(x)}</option>`).join(""); };
+    const CC = ["#10b981", "#3b82f6", "#6366f1", "#eab308", "#ef4444", "#ec4899", "#8b5cf6", "#06b6d4"];
+    const ST = { completado: ["Completada", "#10b981"], pendiente: ["Pendiente", "#eab308"], cancelado: ["Cancelada", "#ef4444"], fallido: ["Fallida", "#ef4444"], en_disputa: ["En disputa", "#f97316"], desconocido: ["Desconocido", "#94a3b8"] };
+    const SEV = { error: ["Error", "#ef4444"], warning: ["Advertencia", "#eab308"], info: ["Info", "#3b82f6"] };
+    const SRC = { api: ["API", "rgba(59,130,246,0.18);color:var(--blue)"], csv: ["Archivo", "rgba(234,179,8,0.15);color:var(--yellow)"], manual: ["Man", "rgba(99,102,241,0.18);color:var(--purple)"] };
+
+    // ==================== ESTADO ====================
+    let trades = [], page = "dashboard", editing = null, charts = {}, logs = [], issueCount = 0;
+    const APIS = [
+      { id: "binance", name: "Binance", icon: "₿", mode: "api" },
+      { id: "bybit", name: "Bybit", icon: "◎", mode: "api" },
+      { id: "bitget", name: "Bitget", icon: "⬡", mode: "api", passphrase: true },
+      { id: "okx", name: "OKX", icon: "◈", mode: "file", note: "OKX no ofrece una API de historial P2P para cuentas normales. Exporta el archivo desde OKX e impórtalo." },
+      { id: "eldorado", name: "El Dorado", icon: "🟡", mode: "file", note: "El Dorado no tiene API pública. Exporta tu historial e impórtalo, o registra con el botón ⚡." },
+      { id: "kucoin", name: "KuCoin", icon: "⟐", mode: "file", note: "Sincronización por API no disponible. Importa el archivo exportado." },
+    ];
+    let connected = {}; // slug -> { connectedAt, apiKey }
+    const SETTINGS_KEY = "arbitrack-settings";
+    const settings = Object.assign({ name: "", exchange: "Binance", crypto: "USDT", fiat: "PEN", autoSync: true, autoSyncMinutes: 5 }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
+    const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { } };
+    let autoSyncInterval = null, lastAutoSync = null;
+    const dash = { pair: "", from: "", to: "" };
+
+    // ==================== API ====================
+    async function api(path, opts = {}) {
+      const r = await fetch(path, { method: opts.method || "GET", headers: opts.body !== undefined ? { "Content-Type": "application/json" } : {}, body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined });
+      let d = {};
+      try { d = await r.json(); } catch (e) { }
+      if (!r.ok) { const e = new Error(d.error || `Error HTTP ${r.status}`); e.data = d; e.status = r.status; throw e; }
+      return d;
+    }
+    const qs = o => { const p = new URLSearchParams(); Object.entries(o).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") p.set(k, v); }); const s = p.toString(); return s ? "?" + s : ""; };
+
+    // ==================== TOAST & LOG ====================
+    function toast(m, t = "ok") { const el = $("toast"); el.className = `toast on ${t}`; el.innerHTML = `${ic(t === "ok" ? "ok" : "x", 14)} ${esc(m)}`; clearTimeout(window._tt); window._tt = setTimeout(() => el.classList.remove("on"), t === "ok" ? 3500 : 7000); }
+    function log(m, t = "info") { logs.unshift({ time: new Date().toLocaleTimeString("es-PE", { timeZone: TZ }), m, t }); if (logs.length > 50) logs.length = 50; }
+
+    // ==================== NAV ====================
+    function nav() {
+      const items = [
+        { id: "dashboard", l: "Dashboard", i: "dash" },
+        { id: "trades", l: "Operaciones", i: "chart" },
+        { id: "new", l: "Nueva Operación", i: "plus" },
+        { id: "calculator", l: "Calculadora", i: "calc" },
+        { id: "api", l: "APIs & Sync", i: "api" },
+        { id: "issues", l: "Incidencias", i: "info" },
+        { id: "settings", l: "Configuración", i: "gear" }
+      ];
+      const anyConn = Object.keys(connected).length > 0;
+      $("nav").innerHTML = items.map(x =>
+        `<div class="ni${page === x.id ? " on" : ""}" onclick="${x.id === "new" ? "openForm()" : `go('${x.id}')`}">${ic(x.i)} <span class="lbl">${x.l}</span>${x.id === "api" && anyConn ? '<span class="dot"></span>' : ""}${x.id === "issues" && issueCount ? `<span class="cnt">${issueCount}</span>` : ""}</div>`
+      ).join("");
+      const cn = APIS.filter(a => connected[a.id]);
+      if (cn.length) { $("side-apis").style.display = "block"; $("side-api-list").innerHTML = cn.map(a => `<div class="api-name">${esc(a.name)}</div>`).join(""); } else $("side-apis").style.display = "none";
+      const n = settings.name || "ArbiTrack";
+      $("user-name").textContent = n; $("user-avatar").textContent = n.charAt(0).toUpperCase();
+    }
+    function go(p) { page = p; nav(); render(); }
+    function render() {
+      document.querySelectorAll(".pg").forEach(p => p.classList.remove("on"));
+      const el = $("pg-" + page); if (el) el.classList.add("on");
+      const fns = { dashboard: rDash, trades: rTrades, calculator: rCalc, api: rApi, issues: rIssues, settings: rSettings };
+      Promise.resolve(fns[page] && fns[page]()).catch(e => toast(e.message, "err"));
+    }
+    async function loadTrades() {
+      const d = await api("/api/v1/trades");
+      trades = d.trades || [];
+    }
+    async function refreshIssueCount() {
+      try { const d = await api("/api/v1/issues"); issueCount = d.issues.filter(i => i.severity !== "info").length; } catch (e) { }
+      nav();
+    }
+
+    // ==================== DASHBOARD ====================
+    function statCard(label, val, sub, color) {
+      return `<div class="sc" style="background:linear-gradient(135deg,${color}08,rgba(15,19,32,0.9));border:1px solid ${color}20"><div class="gw" style="background:radial-gradient(circle,${color}10,transparent 70%)"></div><div class="slb">${label}</div><div class="sv">${val}</div>${sub ? `<div class="ss">${sub}</div>` : ""}</div>`;
+    }
+    const chartOpts = () => ({ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#475569", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.03)" } }, y: { ticks: { color: "#475569", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.03)" } } } });
+
+    async function rDash() {
+      const period = { from: dash.from, to: dash.to };
+      const [s, rep] = await Promise.all([api("/api/v1/stats" + qs({ ...period, pair: dash.pair })), api("/api/v1/report" + qs(period))]);
+      const pairs = s.byPair || [];
+      const p = pairs.find(x => x.pair === s.pair);
+      if (!dash.pair && p) dash.pair = p.pair;
+      const cn = APIS.filter(a => connected[a.id]);
+
+      let h = "";
+      if (cn.length) h += `<div class="conn-banner mb">${ic("ok", 14)} <span class="bg" style="background:rgba(16,185,129,0.18);color:var(--green)">APIs:</span>${cn.map(a => `<span class="bg" style="background:rgba(59,130,246,0.18);color:var(--blue);font-weight:700">${esc(a.name)}</span>`).join("")}${settings.autoSync ? `<span class="tag" style="background:rgba(59,130,246,0.08);color:var(--blue);margin-left:auto">${ic("refresh", 12)} Auto-sync cada ${settings.autoSyncMinutes} min</span>` : ''}</div>`;
+
+      h += `<div class="fxb mb2" style="flex-wrap:wrap;gap:10px"><h2 class="h1">Dashboard</h2><div class="fx" style="flex-wrap:wrap">
+        <select class="sel" style="width:auto" onchange="dash.pair=this.value;rDash()" title="Mercado">${pairs.length ? pairs.map(x => `<option value="${esc(x.pair)}"${x.pair === s.pair ? " selected" : ""}>${esc(x.pair)}</option>`).join("") : "<option>Sin datos</option>"}</select>
+        <input type="date" class="inp" style="width:auto" value="${dash.from}" onchange="dash.from=this.value;rDash()" title="Desde">
+        <input type="date" class="inp" style="width:auto" value="${dash.to}" onchange="dash.to=this.value;rDash()" title="Hasta">
+        ${[["7d", 7], ["30d", 30], ["Mes", "m"], ["Todo", 0]].map(([l, d]) => `<button class="btn btn-s" style="padding:6px 10px;font-size:11px" onclick="setDashRange('${d}')">${l}</button>`).join("")}
+      </div></div>`;
+
+      if (s.issues && s.issues.error) h += `<div class="msg err">${ic("x", 12)} ${s.issues.error} operación(es) tienen errores y están excluidas de los cálculos. <a href="#" style="text-decoration:underline" onclick="event.preventDefault();go('issues')">Ver incidencias</a></div>`;
+      if (s.excluded) h += `<div class="msg warn">${s.excluded} operación(es) no se contabilizan (pendientes, canceladas o con error). Solo cuentan las completadas.</div>`;
+      if (pairs.length > 1) h += `<div class="msg info">Tienes ${pairs.length} mercados: ${pairs.map(x => esc(x.pair)).join(", ")}. Cada uno se calcula por separado; cambia de mercado en el selector.</div>`;
+
+      if (!p) {
+        h += `<div class="card empty">Aún no hay operaciones completadas${dash.from || dash.to ? " en este período" : ""}.<br><br><button class="btn btn-p" onclick="openImport()">${ic("up", 14)} Importar archivo</button> <button class="btn btn-s" onclick="openForm()">${ic("plus", 14)} Registrar operación</button></div>`;
+        $("pg-dashboard").innerHTML = h;
+        return;
+      }
+      const fi = p.fiat, cr = p.crypto;
+      const avgB = Number(p.qtyBuy) > 0 ? Number(p.volBuy) / Number(p.qtyBuy) : 0;
+      const avgS = Number(p.qtySell) > 0 ? Number(p.volSell) / Number(p.qtySell) : 0;
+      const pairInfo = (rep.pairs || []).find(x => x.pair === p.pair) || {};
+      const unrec = Number(pairInfo.unrecognizedProceeds || 0);
+
+      h += `<div class="g3">${statCard("Ganancia Neta", fc(p.netProfit, fi), `${Number(p.roi) >= 0 ? "+" : ""}${nf(p.roi, 2, 3)}% sobre el costo · ${p.cycles} ciclo(s)`, "#10b981")}${statCard("Operaciones", p.buys + p.sells, `${p.buys} compras · ${p.sells} ventas`, "#6366f1")}${statCard("Spread Prom.", avgB && avgS ? fp(avgS - avgB) : "—", `C: ${avgB ? fp(avgB) : "—"} · V: ${avgS ? fp(avgS) : "—"} (ponderados)`, "#eab308")}</div>`;
+      h += `<div class="g3 mt">${statCard("Vol. Compra", fc(p.volBuy, fi), `${fq(p.qtyBuy)} ${esc(cr)} · ${p.buys} ops`, "#3b82f6")}${statCard("Vol. Venta", fc(p.volSell, fi), `${fq(p.qtySell)} ${esc(cr)} · ${p.sells} ops`, "#8b5cf6")}${statCard("Comisiones", fc(p.fees, fi), "cripto valorizada a costo + fiat", "#ef4444")}</div>`;
+      h += `<div class="g2 mt"><div class="card"><div class="h2">Ganancia Neta Acumulada</div><div style="height:190px"><canvas id="ch-cum"></canvas></div></div><div class="card"><div class="h2">Ganancia Neta Diaria</div><div style="height:190px"><canvas id="ch-day"></canvas></div></div></div>`;
+      h += `<div class="g2 mt"><div class="card"><div class="h2">Volumen por Exchange (${esc(fi)})</div><div style="height:170px"><canvas id="ch-ex"></canvas></div></div><div class="card"><div class="h2">Resumen Detallado · ${esc(p.pair)}</div><div id="dash-sum"></div></div></div>`;
+      $("pg-dashboard").innerHTML = h;
+
+      $("dash-sum").innerHTML = [
+        { l: "Ganancia Bruta", v: fc(p.grossProfit, fi), c: "#3b82f6" },
+        { l: "(−) Comisiones", v: fc(p.fees, fi), c: "#ef4444" },
+        { l: "(−) Otros costos", v: fc(p.otherCosts, fi), c: "#ef4444" },
+        { l: "= Ganancia Neta", v: fc(p.netProfit, fi), c: "#10b981" },
+        { l: "Costo de lo vendido (FIFO)", v: fc(p.costOfSales, fi), c: "#8b5cf6" },
+        { l: "Inventario al cierre", v: `${fq(p.inventoryQty)} ${esc(cr)} · ${fc(p.inventoryCost, fi)}`, c: "#eab308" },
+        ...(unrec > 0 ? [{ l: "Ventas sin compra registrada (no cuentan)", v: fc(unrec, fi), c: "#f97316" }] : []),
+        { l: "Margen neto", v: nf(p.roi, 2, 3) + "%", c: "#6366f1" },
+      ].map(r => `<div class="fxb" style="padding:5px 10px;background:rgba(255,255,255,0.02);border-radius:7px;border-left:3px solid ${r.c};margin-bottom:6px"><span style="color:var(--muted);font-size:11px">${r.l}</span><span style="font-weight:700;color:${r.c};font-size:12px" class="mono">${r.v}</span></div>`).join("");
+
+      // Resultado por día (hora de Lima): cierres de ciclo − otros costos
+      const dm = {};
+      (rep.cycles || []).filter(c => c.pair === p.pair).forEach(c => { const k = limaDay(c.closedAt); dm[k] = (dm[k] || 0) + Number(c.net) + (c.kind === "manual" ? Number(c.otherCosts || 0) : 0); });
+      (rep.costs || []).filter(c => c.pair === p.pair).forEach(c => { const k = limaDay(c.dateUtc); dm[k] = (dm[k] || 0) - Number(c.value); });
+      let cum = 0;
+      const dd = Object.keys(dm).sort().map(k => { cum += dm[k]; return { d: k.slice(5), p: dm[k], c: cum }; });
+      const ex = (rep.byExchange || []).filter(e => e.pair === p.pair).map(e => [e.exchange, Number(e.buyFiat) + Number(e.sellFiat)]);
+
+      setTimeout(() => {
+        if (!window.Chart) return;
+        ["cum", "day", "ex"].forEach(k => charts[k] && charts[k].destroy());
+        charts.cum = new Chart($("ch-cum"), { type: "line", data: { labels: dd.map(d => d.d), datasets: [{ data: dd.map(d => d.c), borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.1)", fill: true, tension: 0.3, pointRadius: 3 }] }, options: chartOpts() });
+        charts.day = new Chart($("ch-day"), { type: "bar", data: { labels: dd.map(d => d.d), datasets: [{ data: dd.map(d => d.p), backgroundColor: dd.map(d => d.p >= 0 ? "#3b82f6" : "#ef4444"), borderRadius: 4 }] }, options: chartOpts() });
+        charts.ex = new Chart($("ch-ex"), { type: "doughnut", data: { labels: ex.map(e => e[0]), datasets: [{ data: ex.map(e => e[1]), backgroundColor: CC.slice(0, ex.length), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "right", labels: { color: "#94a3b8", font: { size: 11 }, padding: 12 } } } } });
+      }, 30);
+    }
+    function setDashRange(d) {
+      if (d === "0") { dash.from = ""; dash.to = ""; }
+      else if (d === "m") { const t = limaDay(); dash.from = t.slice(0, 8) + "01"; dash.to = t; }
+      else { dash.from = daysAgo(Number(d) - 1); dash.to = limaDay(); }
+      rDash();
+    }
+
+    // ==================== OPERACIONES ====================
+    async function rTrades() {
+      let h = `<div class="fxb mb"><div><h2 class="h1">Operaciones</h2><p style="color:var(--dim);margin-top:4px" id="t-cnt"></p></div><div class="fx"><button class="btn btn-s" onclick="openImport()">${ic("up", 14)} Importar</button><button class="btn btn-s" onclick="openExport()">${ic("dl", 14)} Exportar</button><button class="btn btn-p" onclick="openForm()">${ic("plus", 14)} Nueva</button></div></div>`;
+      h += `<div class="card mb fxw" id="t-flt"></div>`;
+      h += `<div class="card" style="padding:0;overflow:auto"><table><thead id="t-th"></thead><tbody id="t-tb"></tbody></table></div>`;
+      $("pg-trades").innerHTML = h;
+      await loadTrades();
+      const uniq = k => [...new Set(trades.map(t => t[k]).filter(Boolean))].sort();
+      $("t-flt").innerHTML = `<div style="position:relative;flex:1 1 160px"><svg width="14" height="14" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--dim)"><use href="#i-search"/></svg><input class="inp" style="padding-left:32px" placeholder="Buscar orden, contraparte, notas…" id="tf-q" oninput="fTrades()"></div>
+        <select class="sel" style="flex:0 0 110px" id="tf-t" onchange="fTrades()"><option value="">Tipo</option><option value="compra">Compra</option><option value="venta">Venta</option></select>
+        <select class="sel" style="flex:0 0 120px" id="tf-s" onchange="fTrades()"><option value="">Estado</option>${Object.entries(ST).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join("")}</select>
+        <select class="sel" style="flex:0 0 110px" id="tf-e" onchange="fTrades()"><option value="">Exchange</option>${uniq("exchange").map(x => `<option>${esc(x)}</option>`).join("")}</select>
+        <select class="sel" style="flex:0 0 110px" id="tf-p" onchange="fTrades()"><option value="">Par</option>${uniq("pair").map(x => `<option>${esc(x)}</option>`).join("")}</select>
+        <select class="sel" style="flex:0 0 100px" id="tf-src" onchange="fTrades()"><option value="">Fuente</option><option value="manual">Manual</option><option value="api">API</option><option value="csv">Archivo</option></select>`;
+      fTrades();
+    }
+    function fTrades() {
+      const q = ($("tf-q")?.value || "").toLowerCase(), ft = $("tf-t")?.value, fs = $("tf-s")?.value, fe = $("tf-e")?.value, fpair = $("tf-p")?.value, fsc = $("tf-src")?.value;
+      let r = trades;
+      if (q) r = r.filter(t => [t.counterparty, t.notes, t.exchange, t.payMethod, t.orderId].some(x => String(x || "").toLowerCase().includes(q)));
+      if (ft) r = r.filter(t => t.type === ft);
+      if (fs) r = r.filter(t => t.status === fs);
+      if (fe) r = r.filter(t => t.exchange === fe);
+      if (fpair) r = r.filter(t => t.pair === fpair);
+      if (fsc) r = r.filter(t => t.source === fsc);
+      const shown = r.slice(0, 500);
+      $("t-cnt").textContent = `${r.length} de ${trades.length}${r.length > shown.length ? ` · mostrando las ${shown.length} más recientes` : ""}`;
+      $("t-th").innerHTML = `<tr><th>Fecha</th><th>Tipo</th><th>N° Orden</th><th>Exch</th><th>Par</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Total</th><th class="num">Fee</th><th>Método</th><th>Contrap.</th><th>Estado</th><th title="¿Entra en los cálculos?">Cuenta</th><th>Src</th><th></th></tr>`;
+      $("t-tb").innerHTML = shown.length ? shown.map(t => {
+        const st = ST[t.status] || [t.status, "#94a3b8"];
+        const errs = (t.issues || []).filter(i => i.severity === "error").length;
+        const src = SRC[t.source] || SRC.manual;
+        return `<tr>
+          <td style="font-size:12px;color:var(--muted);white-space:nowrap">${fd(t.dateUtc)}</td>
+          <td><span class="bg" style="background:${t.type === "compra" ? "rgba(59,130,246,0.18);color:var(--blue)" : "rgba(16,185,129,0.18);color:var(--green)"}">${t.type === "compra" ? "⬇ compra" : "⬆ venta"}</span></td>
+          <td class="mono" style="font-size:11px;color:var(--muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.orderId)}">${esc(t.orderId || "—")}</td>
+          <td style="font-weight:600">${esc(t.exchange)}</td>
+          <td style="color:var(--yellow);font-weight:600">${esc(t.pair)}</td>
+          <td class="num" style="font-weight:600">${fq(t.exact?.amount ?? t.amount)}</td>
+          <td class="num">${fp(t.exact?.price ?? t.price)}</td>
+          <td class="num" style="font-weight:700;color:${t.type === "compra" ? "var(--blue)" : "var(--green)"}">${fc(t.exact?.total ?? t.total, t.fiat)}</td>
+          <td class="num" style="color:${Number(t.fee) > 0 ? "var(--red)" : "#475569"};font-size:11px">${Number(t.fee) > 0 ? `${fq(t.exact?.fee ?? t.fee)} ${esc(t.feeAsset)}` : "—"}</td>
+          <td><span class="tag">${esc(t.payMethod || "—")}</span></td>
+          <td style="font-size:12px;color:var(--muted)">${esc(t.counterparty || "—")}</td>
+          <td><span class="bg" style="background:${st[1]}20;color:${st[1]}">${st[0]}</span></td>
+          <td>${t.countable ? `<span style="color:var(--green)" title="Se contabiliza">${ic("ok", 14)}</span>` : `<span style="color:${errs ? "var(--red)" : "var(--dim)"};cursor:help" title="${esc(t.excludedReason || "")}">${errs ? "⚠" : "—"}</span>`}</td>
+          <td><span class="bg" style="background:${src[1]};font-size:10px">${src[0]}</span></td>
+          <td><div class="fx" style="justify-content:flex-end;gap:2px"><button class="btn-g" title="Detalle y trazabilidad" onclick="openTrace('${esc(t.id)}')">${ic("info", 14)}</button><button class="btn-g" title="Editar" onclick="openForm('${esc(t.id)}')">${ic("edit", 14)}</button><button class="btn-g" title="Eliminar" style="color:var(--red)" onclick="delTrade('${esc(t.id)}')">${ic("trash", 14)}</button></div></td>
+        </tr>`;
+      }).join("") : `<tr><td colspan="15" class="empty">Sin resultados</td></tr>`;
+    }
+
+    async function delTrade(id) {
+      const t = trades.find(x => x.id === id);
+      if (!confirm(`¿Eliminar la operación ${t?.orderId || ""}?\n\nNo se volverá a importar en futuras sincronizaciones. Puedes restaurarla desde Configuración.`)) return;
+      try { await api("/api/v1/trades/" + encodeURIComponent(id), { method: "DELETE" }); toast("Operación eliminada"); await loadTrades(); fTrades(); refreshIssueCount(); }
+      catch (e) { toast(e.message, "err"); }
+    }
+
+    async function openTrace(id) {
+      try {
+        const d = await api(`/api/v1/trades/${encodeURIComponent(id)}/trace`);
+        const t = d.trade;
+        $("ml").className = "ml wide";
+        $("ml").innerHTML = `<div class="fxb" style="margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">${ic("info", 16)} Detalle de la operación</h3><button class="btn-g" onclick="closeForm()">${ic("x", 16)}</button></div>
+          <div class="g2">
+            <div class="card"><div class="kv">
+              <div>N° de orden</div><div class="mono">${esc(t.orderId || "(sin ID)")}</div>
+              <div>Fecha (Lima)</div><div>${fd(t.dateUtc)}</div>
+              <div>Exchange · Par</div><div>${esc(t.exchange)} · ${esc(t.pair)}</div>
+              <div>Tipo</div><div>${t.side === "buy" ? "Compra" : "Venta"}</div>
+              <div>Cantidad</div><div class="mono">${fq(t.amount)} ${esc(t.crypto)}</div>
+              <div>Precio</div><div class="mono">${fp(t.price)}</div>
+              <div>Total</div><div class="mono">${fc(t.total, t.fiat)}</div>
+              <div>Comisión</div><div class="mono">${Number(t.fee) ? `${fq(t.fee)} ${esc(t.feeAsset)}` : "—"}</div>
+              <div>Estado</div><div>${(ST[t.status] || [t.status])[0]}${t.statusRaw ? ` <span style="color:var(--dim)">(${esc(t.statusRaw)})</span>` : ""}</div>
+              <div>¿Se contabiliza?</div><div style="color:${d.countable ? "var(--green)" : "var(--yellow)"}">${d.countable ? "Sí" : "No — " + esc(d.excludedReason)}</div>
+              <div>Fuente</div><div>${esc((SRC[t.source] || [t.source])[0])}${t.sourceRef?.file ? ` · ${esc(t.sourceRef.file)} fila ${esc(t.sourceRef.row)}` : ""}</div>
+            </div></div>
+            <div class="card">
+              <div class="h2">Incidencias</div>
+              ${d.issues.length ? d.issues.map(i => `<div class="msg ${i.severity === "error" ? "err" : i.severity === "warning" ? "warn" : "info"}">${esc(i.message)}</div>`).join("") : `<div style="color:var(--dim)">Sin incidencias.</div>`}
+              ${d.cycles.length ? `<div class="h2 mt">Ciclos donde participa</div>${d.cycles.map(c => `<div class="fxb" style="padding:5px 10px;background:rgba(255,255,255,0.02);border-radius:7px;margin-bottom:5px"><span class="mono" style="font-size:11px;color:var(--muted)">${esc(c.id)}</span><span class="mono" style="color:${Number(c.net) >= 0 ? "var(--green)" : "var(--red)"};font-weight:700">${fc(c.net, t.fiat)}</span></div>`).join("")}` : ""}
+            </div>
+          </div>
+          ${d.allocations.length ? `<div class="card mt"><div class="h2">Trazabilidad FIFO</div><div class="scroll-y"><table><thead><tr><th>Ciclo</th><th>Compra</th><th>Venta</th><th class="num">Cantidad</th><th class="num">Precio compra</th><th class="num">Costo</th></tr></thead><tbody>${d.allocations.map(a => `<tr><td class="mono" style="font-size:11px">${esc(a.cycleId)}</td><td class="mono" style="font-size:11px">${esc(a.buyId)}</td><td class="mono" style="font-size:11px">${esc(a.sellId)}</td><td class="num">${fq(a.qty)}</td><td class="num">${fp(a.buyPrice)}</td><td class="num">${fc(a.cost, t.fiat)}</td></tr>`).join("")}</tbody></table></div></div>` : ""}
+          ${t.history.length ? `<div class="card mt"><div class="h2">Historial de cambios</div>${t.history.map(x => `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">${fd(x.at)} · ${esc(x.by)}: ${x.changes.map(c => `${esc(c.field)} ${esc(c.from)} → ${esc(c.to)}`).join(", ")}</div>`).join("")}</div>` : ""}
+          <details class="mt"><summary style="cursor:pointer;color:var(--dim);font-size:12px">Dato original recibido del exchange</summary><pre style="white-space:pre-wrap;font-size:11px;color:var(--muted);margin-top:8px">${esc(JSON.stringify(t.raw, null, 2))}</pre></details>`;
+        $("ov").classList.add("open");
+      } catch (e) { toast(e.message, "err"); }
+    }
+
+    // ==================== EXPORTAR ====================
+    function openExport() {
+      $("ml").className = "ml";
+      $("ml").innerHTML = `
+        <div class="fxb" style="margin-bottom:18px"><h3 style="font-size:18px;font-weight:700">${ic("dl", 16)} Exportar Operaciones</h3><button class="btn-g" onclick="closeForm()">${ic("x", 16)}</button></div>
+        <div class="card" style="background:rgba(16,185,129,0.04);border:1px solid rgba(16,185,129,0.12);margin-bottom:16px">
+          <div style="font-weight:700;margin-bottom:10px">${ic("filter", 14)} Rango de fechas (hora de Lima · vacío = todo)</div>
+          <div class="g2" style="gap:12px;margin-bottom:10px">
+            <div><div class="lb">Desde</div><input type="date" class="inp" id="ex-from" onchange="updateExportPreview()"></div>
+            <div><div class="lb">Hasta</div><input type="date" class="inp" id="ex-to" onchange="updateExportPreview()"></div>
+          </div>
+          <div class="fx" style="gap:6px;flex-wrap:wrap">
+            ${[["7 días", 7], ["15 días", 15], ["30 días", 30], ["90 días", 90]].map(([l, d]) => `<button class="btn btn-s" style="padding:5px 12px;font-size:11px" onclick="$('ex-from').value=daysAgo(${d - 1});$('ex-to').value=limaDay();updateExportPreview()">${l}</button>`).join("")}
+            <button class="btn btn-s" style="padding:5px 12px;font-size:11px;background:rgba(16,185,129,0.15);color:var(--green)" onclick="$('ex-from').value='';$('ex-to').value='';updateExportPreview()">Todo</button>
+          </div>
+        </div>
+        <div id="ex-preview" style="font-size:12px;color:var(--muted);margin-bottom:14px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <button class="btn btn-p btn-full" onclick="doExportExcel()">📊 Excel contable (.xlsx)</button>
+          <button class="btn btn-s btn-full" onclick="doExportCSV()">📄 CSV de operaciones</button>
+        </div>
+        <div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.6">El Excel incluye resumen por mercado, operaciones, ciclos, trazabilidad FIFO, comisiones, resultados por exchange y por mes, operaciones excluidas e incidencias.</div>`;
+      updateExportPreview();
+      $("ov").classList.add("open");
+    }
+    function exportRange() {
+      const from = $("ex-from")?.value || "", to = $("ex-to")?.value || "";
+      if (from && to && from > to) { toast("La fecha 'Desde' es posterior a 'Hasta'", "err"); return null; }
+      return { from, to };
+    }
+    const inRange = (t, { from, to }) => { const d = limaDay(t.dateUtc); return (!from || d >= from) && (!to || d <= to); };
+    async function updateExportPreview() {
+      if (!trades.length) { try { await loadTrades(); } catch (e) { } }
+      const r = exportRange(); if (!r) return;
+      const list = trades.filter(t => inRange(t, r));
+      const el = $("ex-preview");
+      if (el) el.innerHTML = `${list.length} operaciones en el rango · ${list.filter(t => t.countable).length} se contabilizan · ${list.filter(t => !t.countable).length} excluidas (pendientes, canceladas o con error)`;
+    }
+    function doExportExcel() {
+      const r = exportRange(); if (!r) return;
+      window.location.href = "/api/v1/export/excel" + qs({ from: r.from, to: r.to, userName: settings.name });
+      toast("Generando Excel…"); closeForm();
+    }
+    function doExportCSV() {
+      const r = exportRange(); if (!r) return;
+      const list = trades.filter(t => inRange(t, r)).slice().sort((a, b) => a.dateUtc.localeCompare(b.dateUtc));
+      const cell = v => { const s = String(v ?? ""); return /[",;\n\r]/.test(s) || /^[=+\-@\t]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+      const headers = ["Fecha (Lima)", "Fecha UTC", "N° Orden", "Tipo", "Exchange", "Cripto", "Fiat", "Cantidad", "Precio", "Total", "Comisión", "Moneda comisión", "Método de pago", "Contraparte", "Estado", "Se contabiliza", "Motivo exclusión", "Fuente", "Notas"];
+      const rows = list.map(t => [t.date.replace("T", " "), t.dateUtc, t.orderId || "", t.type, t.exchange, t.crypto, t.fiat, t.exact?.amount ?? t.amount, t.exact?.price ?? t.price, t.exact?.total ?? t.total, t.exact?.fee ?? t.fee, Number(t.fee) ? t.feeAsset : "", t.payMethod || "", t.counterparty || "", t.status, t.countable ? "sí" : "no", t.excludedReason || "", t.source, t.notes || ""].map(cell).join(","));
+      const blob = new Blob(["﻿" + headers.join(",") + "\r\n" + rows.join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `ArbiTrack_Operaciones_${r.from || "inicio"}_${r.to || limaDay()}.csv`;
+      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      toast("CSV exportado"); closeForm();
+    }
+
+    // ==================== IMPORTAR (automático) ====================
+    // Eliges uno o varios archivos → se detecta el exchange, las columnas y la zona horaria → si no hay problemas
+    // se registran solos. Si algo no se puede interpretar con seguridad, se detiene ESE archivo y se explica por qué.
+    let imp = null; // archivo que quedó esperando una decisión del usuario
+    const FIELD_LABEL = { orderId: "N° de orden", side: "Tipo (compra/venta)", date: "Fecha", status: "Estado", crypto: "Cripto", fiat: "Fiat", pair: "Par (USDT/PEN)", amount: "Cantidad cripto", price: "Precio", total: "Total fiat", fee: "Comisión", feeAsset: "Moneda comisión", counterparty: "Contraparte", payMethod: "Método de pago", exchange: "Exchange" };
+    function openImport(exchange = "") {
+      imp = null;
+      $("ml").className = "ml wide";
+      $("ml").innerHTML = `
+        <div class="fxb" style="margin-bottom:18px"><h3 style="font-size:18px;font-weight:700">${ic("up", 16)} Importar Operaciones</h3><button class="btn-g" onclick="closeForm()">${ic("x", 16)}</button></div>
+        <div class="drop" id="im-drop" onclick="$('import-file').click()">
+          <div style="margin-bottom:8px;color:var(--green)">${ic("up", 30)}</div>
+          <div style="font-weight:700;margin-bottom:4px">Arrastra aquí tus archivos o haz clic para elegirlos</div>
+          <div style="font-size:12px;color:var(--dim)">Binance · Bybit · Bitget · OKX · El Dorado — CSV o Excel, tal cual los descargas. Puedes subir varios a la vez.</div>
+        </div>
+        <details style="margin-top:10px"><summary style="cursor:pointer;color:var(--dim);font-size:12px">Opciones avanzadas (normalmente no hacen falta)</summary>
+          <div class="g4 mt">
+            <div><div class="lb">Exchange</div><select class="sel" id="im-ex"><option value="">Detectar automáticamente</option>${["Binance", "Bybit", "Bitget", "OKX", "El Dorado"].map(x => `<option${x === exchange ? " selected" : ""}>${x}</option>`).join("")}</select></div>
+            <div><div class="lb">Zona horaria del archivo</div><select class="sel" id="im-tz"><option value="">Automática</option><option value="America/Lima">Lima (UTC−5)</option><option value="UTC">UTC</option><option value="Asia/Shanghai">UTC+8</option></select></div>
+            <div><div class="lb">Formato de fecha</div><select class="sel" id="im-do"><option value="">Automático</option><option value="DMY">día/mes/año</option><option value="MDY">mes/día/año</option></select></div>
+            <div><div class="lb">Decimales</div><select class="sel" id="im-dec"><option value="">Automático</option><option value=".">1,234.56</option><option value=",">1.234,56</option></select></div>
+          </div>
+          <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="im-review"> Revisar la vista previa antes de registrar</label>
+        </details>
+        <div id="import-results" style="margin-top:14px"></div>`;
+      const dz = $("im-drop");
+      ["dragover", "dragenter"].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add("over"); }));
+      ["dragleave", "drop"].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.remove("over"); }));
+      dz.addEventListener("drop", ev => { if (ev.dataTransfer.files.length) importFiles([...ev.dataTransfer.files]); });
+      $("ov").classList.add("open");
+    }
+    function handleImportFile(input) { if (input.files && input.files.length) importFiles([...input.files]); input.value = ""; }
+    async function readFile(f) {
+      const buf = new Uint8Array(await f.arrayBuffer());
+      if (/\.xlsx$/i.test(f.name) || (buf[0] === 0x50 && buf[1] === 0x4b)) {
+        let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+        return { contentBase64: btoa(bin) };
+      }
+      try { return { content: new TextDecoder("utf-8", { fatal: true }).decode(buf) }; }   // UTF-8 válido
+      catch (e) { return { content: new TextDecoder("windows-1252").decode(buf) }; }       // CSV de Excel en español
+    }
+    async function importFiles(files) {
+      if (!$("im-drop")) openImport();
+      for (const f of files) {
+        const box = document.createElement("div");
+        box.className = "card mb"; box.style.padding = "14px";
+        box.innerHTML = `<div class="fx"><b>📄 ${esc(f.name)}</b><span style="color:var(--yellow);margin-left:auto;font-size:12px">${ic("refresh", 12)} Analizando…</span></div>`;
+        $("import-results").prepend(box);
+        const job = { file: f, payload: await readFile(f), mapping: null, box };
+        await runImport(job, !$("im-review")?.checked);
+      }
+      await loadTrades(); refreshIssueCount();
+      if (page === "trades") fTrades(); else if (page === "dashboard") rDash();
+    }
+    async function runImport(job, commit) {
+      const body = { filename: job.file.name, ...job.payload, exchange: $("im-ex")?.value || undefined, tz: $("im-tz")?.value || undefined, dateOrder: $("im-do")?.value || undefined, decimal: $("im-dec")?.value || undefined, mapping: job.mapping || undefined, commit };
+      let r;
+      try {
+        const res = await fetch("/api/v1/import/file", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        r = await res.json().catch(() => ({}));
+        if (!res.ok && !r.status) throw new Error(r.error || `Error HTTP ${res.status}`);
+      } catch (e) { job.box.innerHTML = `<b>📄 ${esc(job.file.name)}</b><div class="msg err mt">${esc(e.message)}</div>`; return; }
+      renderImport(job, r);
+      if (r.committed) {
+        const x = r.result;
+        toast(`${job.file.name}: ${x.inserted} nuevas · ${x.updated.length} actualizadas`);
+        log(`Importación ${job.file.name}: +${x.inserted}, ~${x.updated.length}, =${x.unchanged}`, "ok");
+      }
+    }
+    function renderImport(job, r) {
+      const o = [], d = r.detection || {}, s = r.summary || {};
+      const head = r.committed ? `<span class="bg" style="background:rgba(16,185,129,0.18);color:var(--green)">${ic("ok", 12)} Importado</span>`
+        : r.status === "error" || r.status === "needs_input" ? `<span class="bg" style="background:rgba(239,68,68,0.15);color:var(--red)">Necesita tu ayuda</span>`
+        : `<span class="bg" style="background:rgba(234,179,8,0.15);color:var(--yellow)">Vista previa</span>`;
+      o.push(`<div class="fxb" style="flex-wrap:wrap;gap:8px"><b>📄 ${esc(job.file.name)}</b><div class="fx" style="gap:6px;flex-wrap:wrap">${d.exchange ? `<span class="tag" style="background:rgba(16,185,129,0.1);color:var(--green)">${esc(d.exchange)}</span>` : ""}${head}</div></div>`);
+      if (r.committed) {
+        const x = r.result;
+        o.push(`<div class="fxw mt" style="gap:6px">${[[`${x.inserted} nuevas`, "var(--green)"], [`${x.updated.length} actualizadas`, "var(--blue)"], [`${x.unchanged} ya existían`, "var(--muted)"], ...(x.duplicatesInFile.length ? [[`${x.duplicatesInFile.length} repetidas en el archivo`, "var(--yellow)"]] : []), ...(r.rejected.length ? [[`${r.rejected.length} filas rechazadas`, "var(--red)"]] : [])].map(([t, c]) => `<span class="tag" style="color:${c}">${t}</span>`).join("")}${Object.entries(s.byStatus || {}).map(([k, v]) => `<span class="tag">${esc((ST[k] || [k])[0])}: ${v}</span>`).join("")}${Object.entries(s.byPair || {}).map(([k, v]) => `<span class="tag" style="color:var(--yellow)">${esc(k)}: ${v}</span>`).join("")}</div>`);
+        if (x.updated.length) o.push(`<details class="mt"><summary style="cursor:pointer;color:var(--muted);font-size:12px">Ver ${x.updated.length} cambios (p. ej. pendiente → completada)</summary>${x.updated.map(u => `<div style="font-size:11px;color:var(--muted)">${esc(u.id)}: ${u.changes.map(c => `${esc(c.field)} ${esc(c.from)} → ${esc(c.to)}`).join(", ")}</div>`).join("")}</details>`);
+      }
+      if (r.error && !r.committed) o.push(`<div class="msg err mt">${esc(r.error)}</div>`);
+      (r.blocking || []).forEach(b => o.push(`<div class="msg err mt">${esc(b)}</div>`));
+      (r.needs || []).forEach(n => o.push(`<div class="msg warn mt">${esc(n.message)}${n.field === "exchange" ? ` Elige el exchange en «Opciones avanzadas» y vuelve a subir el archivo.` : ""}${n.ambiguousHeaders?.length ? `<br>Columnas ambiguas (no se asignan solas): <b>${n.ambiguousHeaders.map(esc).join(", ")}</b>` : ""}</div>`));
+      if (r.options?.tzNote) o.push(`<div style="font-size:11px;color:var(--green);margin-top:8px">${ic("ok", 11)} ${esc(r.options.tzNote)}</div>`);
+      (r.warnings || []).forEach(w => o.push(`<div class="msg warn mt">${esc(w)}</div>`));
+      if (s.firstOperation && r.options?.tzSource === "supuesta") o.push(`<div class="msg info mt">Comprueba una hora: la orden <span class="mono">${esc(s.firstOperation.orderId || "(sin ID)")}</span> dice <span class="mono">${esc(s.firstOperation.sourceValue)}</span> en el archivo y se registró como <b>${esc(s.firstOperation.interpretedAs)}</b>.${r.committed && r.batchId ? ` Si no coincide con el exchange, <a href="#" style="text-decoration:underline" onclick="event.preventDefault();undoImport('${esc(r.batchId)}',this)">deshaz esta importación</a> y vuelve a subirla eligiendo la zona horaria en «Opciones avanzadas».` : ""}</div>`);
+      if (!r.committed && (r.status === "ok" || r.status === "ok_with_issues") && s.accepted) {
+        o.push(`<button class="btn btn-p btn-full mt" data-commit>${ic("ok", 14)} Registrar ${s.accepted} operaciones</button>`);
+      }
+      if (r.preview?.length && !r.committed) o.push(`<div class="scroll-y mt" style="max-height:220px"><table><thead><tr><th>Fecha (Lima)</th><th>Tipo</th><th>N° Orden</th><th>Par</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Total</th><th>Estado</th></tr></thead><tbody>${r.preview.map(t => `<tr><td style="white-space:nowrap">${fd(t.dateUtc)}</td><td>${t.type}</td><td class="mono" style="font-size:11px">${esc(t.orderId || "—")}</td><td>${esc(t.pair)}</td><td class="num">${fq(t.exact.amount)}</td><td class="num">${fp(t.exact.price)}</td><td class="num">${fc(t.exact.total, t.fiat)}</td><td>${esc((ST[t.status] || [t.status])[0])}</td></tr>`).join("")}</tbody></table></div>`);
+      if (r.rejected?.length) o.push(`<details class="mt"><summary style="cursor:pointer;color:var(--red);font-size:12px">Ver ${r.rejected.length} filas rechazadas y el motivo</summary>${r.rejected.map(x => `<div style="font-size:12px;margin-top:4px"><span class="mono" style="color:var(--dim)">fila ${x.row}:</span> ${x.reasons.map(esc).join("; ")}</div>`).join("")}</details>`);
+      const iss = (r.issues || []).filter(i => i.severity !== "info");
+      if (iss.length) o.push(`<details class="mt"><summary style="cursor:pointer;color:var(--yellow);font-size:12px">Ver ${iss.length} observaciones</summary>${iss.map(i => `<div style="font-size:12px;margin-top:4px"><span style="color:${SEV[i.severity][1]}">${SEV[i.severity][0]}</span> · <span class="mono" style="color:var(--dim)">fila ${i.row}</span> · ${esc(i.message)}</div>`).join("")}</details>`);
+      if (d.headers && !r.committed && (r.status === "error" || r.status === "needs_input")) {
+        const headers = d.headers.filter(h => String(h).trim()), cur = r.mapping || {};
+        o.push(`<details class="mt"${(r.needs || []).some(n => n.field === "mapping") ? " open" : ""}><summary style="cursor:pointer;font-weight:600;font-size:12px">Indicar las columnas manualmente</summary><div class="g4 mt">${Object.keys(FIELD_LABEL).map(f => `<div><div class="lb">${FIELD_LABEL[f]}</div><select class="sel" data-map="${f}"><option value="">— no usar —</option>${headers.map(h => `<option${cur[f] === h ? " selected" : ""}>${esc(h)}</option>`).join("")}</select></div>`).join("")}</div><button class="btn btn-s mt" data-remap>${ic("refresh", 14)} Volver a intentar con estas columnas</button></details>`);
+      }
+      if (r.committed && r.batchId) o.push(`<div class="fxe mt"><button class="btn btn-s" style="padding:5px 12px;font-size:11px" onclick="undoImport('${esc(r.batchId)}',this)">Deshacer esta importación</button></div>`);
+      job.box.innerHTML = o.join("");
+      job.box.querySelector("[data-commit]")?.addEventListener("click", () => runImport(job, true).then(async () => { await loadTrades(); refreshIssueCount(); render(); }));
+      job.box.querySelector("[data-remap]")?.addEventListener("click", () => {
+        const m = {}; job.box.querySelectorAll("[data-map]").forEach(sel => m[sel.dataset.map] = sel.value || null);
+        job.mapping = m; runImport(job, !$("im-review")?.checked).then(async () => { await loadTrades(); refreshIssueCount(); render(); });
+      });
+    }
+    async function undoImport(batchId, el) {
+      if (!confirm("¿Deshacer esta importación? Se eliminan las operaciones que llegaron solo con este archivo (quedan en el historial).")) return;
+      try {
+        const r = await api("/api/v1/import/batches/" + encodeURIComponent(batchId), { method: "DELETE" });
+        toast(`Importación deshecha: ${r.removed} operación(es) eliminadas`);
+        if (el) el.closest(".card").insertAdjacentHTML("beforeend", `<div class="msg warn mt">Importación deshecha (${r.removed} eliminadas).</div>`);
+        await loadTrades(); refreshIssueCount(); if (page !== "settings") render();
+      } catch (e) { toast(e.message, "err"); }
+    }
+
+    // ==================== FORMULARIO MANUAL ====================
+    let formType = "compra", formInitial = {};
+    window.openForm = function (id) {
+      editing = id ? trades.find(t => t.id === id) : null;
+      if (id && !editing) { toast("Operación no encontrada; recarga la página", "err"); return; }
+      formType = editing?.type || "compra";
+      const t = editing || { type: "compra", date: limaInput(), exchange: settings.exchange, crypto: settings.crypto, fiat: settings.fiat, amount: "", price: "", total: "", fee: 0, feeAsset: settings.crypto, payMethod: gpm(settings.fiat)[0], counterparty: "", status: "completado", notes: "", orderId: "" };
+      const v = (x) => esc(x ?? "");
+      const feeKind = editing && Number(t.fee) > 0 && t.feeAsset === t.fiat ? "fiat" : "crypto";
+      $("ml").className = "ml";
+      $("ml").innerHTML = `
+        <div class="fxb" style="margin-bottom:18px"><h3 style="font-size:18px;font-weight:700">${editing ? "Editar" : "Nueva"} Operación</h3><button class="btn-g" onclick="closeForm()">${ic("x", 16)}</button></div>
+        ${editing && editing.source !== "manual" ? `<div class="msg warn">Esta operación vino de ${editing.source === "api" ? "la API" : "un archivo"}. Los campos que cambies quedarán marcados como editados manualmente y la próxima sincronización no los sobrescribirá.</div>` : ""}
+        <div class="tg-group"><button class="tg-btn${formType === "compra" ? " buy" : ""}" id="tb-buy" onclick="setFT('compra')">⬇ Compra</button><button class="tg-btn${formType === "venta" ? " sell" : ""}" id="tb-sell" onclick="setFT('venta')">⬆ Venta</button></div>
+        <div class="g2" style="gap:12px">
+          <div><div class="lb">N° Orden / ID</div><input class="inp" id="f-oid" value="${v(t.orderId)}" placeholder="Ej: 22841038419117776896"></div>
+          <div><div class="lb">Fecha (hora de Lima)</div><input type="datetime-local" class="inp" id="f-date" value="${v(t.date)}"></div>
+          <div><div class="lb">Exchange</div><select class="sel" id="f-ex">${opts(EX, t.exchange)}</select></div>
+          <div><div class="lb">Crypto</div><select class="sel" id="f-cr" onchange="calcFee()">${opts(CR, t.crypto)}</select></div>
+          <div><div class="lb">Fiat</div><select class="sel" id="f-fi" onchange="updPM();calcFee()">${opts(FI, t.fiat)}</select></div>
+          <div><div class="lb">Cantidad (cripto)</div><input type="number" step="any" min="0" class="inp" id="f-amt" value="${v(editing ? (t.exact?.amount ?? t.amount) : "")}" oninput="calcT()"></div>
+          <div><div class="lb">Precio</div><input type="number" step="any" min="0" class="inp" id="f-pr" value="${v(editing ? (t.exact?.price ?? t.price) : "")}" oninput="calcT()"></div>
+          <div><div class="lb">Total (fiat)</div><input type="number" step="any" min="0" class="inp inp-green" id="f-tot" value="${v(editing ? (t.exact?.total ?? t.total) : "")}" oninput="this.dataset.manual='1'"></div>
+          <div><div class="lb">Método de Pago</div><select class="sel" id="f-pm">${opts(gpm(t.fiat), t.payMethod || undefined)}</select></div>
+          <div><div class="lb">Comisión</div>
+            <div style="display:flex;gap:4px;margin-bottom:4px">
+              <button class="btn btn-s" style="padding:3px 8px;font-size:10px;flex:1" id="ft-crypto" onclick="setFeeType('crypto')">Fija (cripto)</button>
+              <button class="btn btn-s" style="padding:3px 8px;font-size:10px;flex:1" id="ft-percent" onclick="setFeeType('percent')">% plataforma</button>
+              <button class="btn btn-s" style="padding:3px 8px;font-size:10px;flex:1" id="ft-fiat" onclick="setFeeType('fiat')">Fija (fiat)</button>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input type="number" step="any" min="0" class="inp" id="f-fee" value="${v(editing ? (t.exact?.fee ?? t.fee) : 0)}" oninput="calcFee()" style="flex:1" placeholder="0">
+              <span id="f-fee-unit" style="font-size:11px;color:var(--muted);white-space:nowrap;min-width:44px"></span>
+            </div>
+            <div id="f-fee-preview" style="font-size:10px;color:var(--dim);margin-top:3px"></div>
+            <input type="hidden" id="f-fee-type" value="${feeKind}">
+          </div>
+          <div><div class="lb">Contraparte</div><input class="inp" id="f-cp" value="${v(t.counterparty)}"></div>
+          <div><div class="lb">Estado</div><select class="sel" id="f-st">${Object.entries(ST).filter(([k]) => ["completado", "pendiente", "cancelado"].includes(k) || k === t.status).map(([k, x]) => `<option value="${k}"${k === t.status ? " selected" : ""}>${x[0]}</option>`).join("")}</select></div>
+          <div class="gs2"><div class="lb">Notas</div><input class="inp" id="f-nt" value="${v(t.notes)}"></div>
+        </div>
+        <div id="f-err"></div>
+        <div class="fxe" style="margin-top:18px"><button class="btn btn-s" onclick="closeForm()">Cancelar</button><button class="btn btn-p" id="f-save" onclick="saveForm()">${ic("ok", 14)} ${editing ? "Guardar" : "Registrar"}</button></div>`;
+      $("ov").classList.add("open");
+      setFeeType(feeKind, true);
+      formInitial = readForm();
+      if (editing) $("f-tot").dataset.manual = "1"; // al editar, nunca se recalcula el total real del exchange por sí solo
+    };
+    window.closeForm = function () { $("ov").classList.remove("open"); editing = null; };
+    function setFT(t) { formType = t; $("tb-buy").className = `tg-btn${t === "compra" ? " buy" : ""}`; $("tb-sell").className = `tg-btn${t === "venta" ? " sell" : ""}`; }
+    function calcT() {
+      const tot = $("f-tot"); const a = parseFloat($("f-amt").value), p = parseFloat($("f-pr").value);
+      if (tot.dataset.manual !== "1" && a > 0 && p > 0) tot.value = String(Math.round(a * p * 100) / 100);
+      if (editing && a > 0 && p > 0) { const calc = a * p, cur = parseFloat(tot.value); $("f-fee-preview").dataset.tot = Math.abs(calc - cur) > Math.max(0.01, cur * 0.001) ? `Cantidad × precio = ${nf(calc)}; el total registrado es ${nf(cur)}.` : ""; }
+      calcFee();
+    }
+    function updPM() { const f = $("f-fi").value; $("f-pm").innerHTML = opts(gpm(f)); }
+    function setFeeType(type, keepValue) {
+      $("f-fee-type").value = type;
+      ["crypto", "percent", "fiat"].forEach(k => $("ft-" + k).className = `btn ${k === type ? "btn-ok" : "btn-s"}`);
+      if (!keepValue) $("f-fee").value = "";
+      calcFee();
+    }
+    function calcFee() {
+      const type = $("f-fee-type")?.value || "crypto", val = parseFloat($("f-fee")?.value) || 0, amt = parseFloat($("f-amt")?.value) || 0, cr = $("f-cr")?.value || "USDT", fi = $("f-fi")?.value || "PEN";
+      $("f-fee-unit").textContent = type === "crypto" ? cr : type === "fiat" ? fi : "%";
+      let prev = "";
+      if (type === "percent" && val > 0) prev = `= ${nf(amt * val / 100, 2, 8)} ${cr}`;
+      else if (type === "crypto" && val > 0 && amt > 0) prev = `= ${nf(val / amt * 100, 2, 3)}% de la cantidad`;
+      const extra = $("f-fee-preview")?.dataset.tot || "";
+      $("f-fee-preview").textContent = [prev, extra].filter(Boolean).join(" · ");
+    }
+    function readForm() {
+      const type = $("f-fee-type").value, feeVal = $("f-fee").value.trim(), amt = $("f-amt").value.trim();
+      let fee = feeVal || "0", feeType = type === "fiat" ? "fiat" : "crypto";
+      if (type === "percent") fee = feeVal && amt ? String(parseFloat(amt) * parseFloat(feeVal) / 100) : "0";
+      return { type: formType, date: $("f-date").value, exchange: $("f-ex").value, orderId: $("f-oid").value.trim(), crypto: $("f-cr").value, fiat: $("f-fi").value, amount: amt, price: $("f-pr").value.trim(), total: $("f-tot").value.trim(), fee, feeType, payMethod: $("f-pm").value, counterparty: $("f-cp").value.trim(), status: $("f-st").value, notes: $("f-nt").value.trim() };
+    }
+    async function saveForm() {
+      const f = readForm();
+      const errs = [];
+      if (!f.date) errs.push("Indica la fecha.");
+      if (!(parseFloat(f.amount) > 0)) errs.push("La cantidad debe ser mayor que 0.");
+      if (!(parseFloat(f.price) > 0) && !(parseFloat(f.total) > 0)) errs.push("Indica el precio o el total.");
+      if (parseFloat(f.fee) < 0) errs.push("La comisión no puede ser negativa.");
+      if (errs.length) { $("f-err").innerHTML = `<div class="msg err mt">${errs.join("<br>")}</div>`; return; }
+      $("f-save").disabled = true;
+      try {
+        if (editing) {
+          // solo se envían los campos que el usuario cambió (así no se alteran datos originales del exchange)
+          const changes = {};
+          Object.keys(f).forEach(k => { if (f[k] !== formInitial[k]) changes[k] = f[k]; });
+          if ("fee" in changes || "feeType" in changes) { changes.fee = f.fee; changes.feeType = f.feeType; }
+          if (!Object.keys(changes).length) { closeForm(); return; }
+          await api(`/api/v1/trades/${encodeURIComponent(editing.id)}`, { method: "PUT", body: changes });
+          toast("Operación actualizada ✓");
+        } else {
+          await api("/api/v1/trades", { method: "POST", body: { ...f, orderId: f.orderId || undefined, total: f.total || undefined } });
+          toast("Operación registrada ✓");
+        }
+        closeForm(); await loadTrades(); refreshIssueCount(); render();
+      } catch (e) {
+        $("f-err").innerHTML = `<div class="msg err mt">${esc(e.message)}</div>`;
+        $("f-save").disabled = false;
+      }
+    }
+
+    // ==================== CALCULADORA ====================
+    function rCalc() {
+      $("pg-calculator").innerHTML = `<h2 class="h1 mb2">Calculadora de Arbitraje</h2><div class="msg info">Simulación: no guarda nada en tus operaciones.</div><div class="g2"><div class="card"><div class="h2">Parámetros</div><div class="g2" style="gap:12px;margin-bottom:14px"><div><div class="lb">P. Compra</div><input type="number" step="any" class="inp" id="c-bp" value="3.72" oninput="cCalc()"></div><div><div class="lb">% Comisión Compra</div><input type="number" step="any" class="inp" id="c-bc" value="0" oninput="cCalc()"></div><div><div class="lb">P. Venta</div><input type="number" step="any" class="inp" id="c-sp" value="3.80" oninput="cCalc()"></div><div><div class="lb">% Comisión Venta</div><input type="number" step="any" class="inp" id="c-sc" value="0" oninput="cCalc()"></div><div><div class="lb">Cantidad (USDT)</div><input type="number" step="any" class="inp" id="c-am" value="1000" oninput="cCalc()"></div><div><div class="lb">Costo transferencia (fiat)</div><input type="number" step="any" class="inp" id="c-tf" value="0" oninput="cCalc()"></div></div><div style="font-size:11px;color:var(--dim);line-height:1.6">Modelo: compras la cantidad indicada pagando además la comisión de compra, y vendes esa cantidad descontando la comisión de venta.</div></div><div class="card" id="c-res"></div></div><div class="card mt" id="c-sc2"></div>`;
+      cCalc();
+    }
+    function cCalc() {
+      const bp = parseFloat($("c-bp").value) || 0, sp = parseFloat($("c-sp").value) || 0, am = parseFloat($("c-am").value) || 0, tf = parseFloat($("c-tf").value) || 0;
+      const bc = (parseFloat($("c-bc").value) || 0) / 100, sc = (parseFloat($("c-sc").value) || 0) / 100;
+      const sim = a => { const tB = a * (1 + bc) * bp, tS = a * (1 - sc) * sp; return { tB, tS, gr: tS - tB, ne: tS - tB - tf }; };
+      const { tB, tS, gr, ne } = sim(am);
+      const roi = tB > 0 ? ne / tB * 100 : 0, spd = sp - bp, spp = bp > 0 ? spd / bp * 100 : 0;
+      const be = am > 0 && sc < 1 ? (tB + tf) / (am * (1 - sc)) : 0; // precio de venta de equilibrio
+      $("c-res").innerHTML = `<div class="h2">Resultado</div><div style="text-align:center;padding:14px 0"><div style="font-size:11px;color:var(--dim)">GANANCIA NETA</div><div class="mono" style="font-size:36px;font-weight:900;color:${ne >= 0 ? "var(--green)" : "var(--red)"}">${ne >= 0 ? "+" : ""}${nf(ne)}</div><div style="font-size:14px;color:${roi >= 0 ? "var(--green)" : "var(--red)"};font-weight:700;margin-top:4px">ROI: ${nf(roi, 3, 3)}%</div></div><div>${[
+        { l: "Spread", v: `${fp(spd)} (${nf(spp, 3, 3)}%)`, c: "#eab308" },
+        { l: `Pagas por ${nf(am)} USDT (+${nf(bc * 100)}%)`, v: nf(tB), c: "#3b82f6" },
+        { l: `Recibes al vender (−${nf(sc * 100)}%)`, v: nf(tS), c: "#10b981" },
+        { l: "Bruto", v: nf(gr), c: "#8b5cf6" },
+        { l: "Comisión compra", v: nf(am * bc * bp), c: "#ef4444" },
+        { l: "Comisión venta", v: nf(am * sc * sp), c: "#ef4444" },
+        { l: "Costo transferencia", v: nf(tf), c: "#ef4444" },
+        { l: "Precio de venta de equilibrio", v: be ? fp(be) : "—", c: "#6366f1" },
+      ].map(r => `<div class="fxb" style="padding:4px 10px;background:rgba(0,0,0,0.2);border-radius:6px;margin-bottom:4px"><span style="color:var(--muted);font-size:11px">${r.l}</span><span class="mono" style="font-weight:700;color:${r.c};font-size:12px">${r.v}</span></div>`).join("")}</div>`;
+      $("c-sc2").innerHTML = `<div class="h2">Escenarios por Volumen</div><div class="g6">${[100, 500, 1000, 2000, 5000, 10000].map(a => { const n = sim(a).ne; return `<div style="background:rgba(255,255,255,0.02);border-radius:10px;padding:12px;text-align:center;border:1px solid ${n >= 0 ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)"}"><div style="font-size:11px;color:var(--dim)">${a.toLocaleString("es-PE")} USDT</div><div class="mono" style="font-size:15px;font-weight:800;color:${n >= 0 ? "var(--green)" : "var(--red)"}">${n >= 0 ? "+" : ""}${nf(n)}</div></div>`; }).join("")}</div>`;
+    }
+
+    // ==================== APIs & SYNC ====================
+    async function loadConnected() {
+      try { const d = await api("/api/v1/exchanges"); connected = {}; (d.exchanges || []).forEach(x => connected[x.name] = x); } catch (e) { }
+    }
+    async function rApi() {
+      await loadConnected(); nav();
+      const cn = APIS.filter(a => connected[a.id]);
+      let h = `<div class="mb2"><h2 class="h1">APIs & Sync</h2><p style="color:var(--dim);margin-top:4px">Sincronización con tus exchanges P2P (solo lectura)</p></div>`;
+      if (cn.length) h += `<div class="conn-banner mb">${ic("ok", 14)} <span class="bg" style="background:rgba(16,185,129,0.18);color:var(--green)">APIs Activas</span>${cn.map(a => `<span class="bg" style="background:rgba(59,130,246,0.18);color:var(--blue);font-weight:700">${a.icon} ${esc(a.name)}</span>`).join("")}<span style="font-size:11px;color:var(--dim);margin-left:auto">${ic("shield", 14)} Claves cifradas</span></div>`;
+      h += `<div class="ibox mb" style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(59,130,246,0.05));border:1px solid rgba(99,102,241,0.15)"><div class="iw" style="background:rgba(99,102,241,0.2);color:var(--purple)">${ic("info", 16)}</div><div><div style="font-weight:700;margin-bottom:4px">Cómo funciona</div><div style="font-size:12px;color:var(--muted);line-height:1.7"><b style="color:var(--yellow)">1.</b> Crea una API Key de <b>solo lectura</b> en el exchange y conéctala aquí<br><b style="color:var(--yellow)">2.</b> Sincroniza un rango de fechas; si algo falla, <b>no se guarda nada a medias</b><br><b style="color:var(--yellow)">3.</b> Resincronizar no duplica: actualiza el estado (p. ej. pendiente → completada)</div><div style="margin-top:8px;font-size:11px;color:var(--dim);line-height:1.6"><b>✅ API:</b> Binance, Bybit, Bitget (Bitget solo para cuentas de comerciante)<br><b>📄 Importar archivo:</b> OKX, El Dorado, KuCoin y otros</div></div></div>`;
+      if (cn.length) {
+        h += `<div class="card mb" style="border:1px solid rgba(59,130,246,0.15);background:linear-gradient(135deg,rgba(59,130,246,0.04),rgba(16,185,129,0.03))">
+          <div class="fxb" style="margin-bottom:10px">
+            <div class="fx"><div style="width:28px;height:28px;border-radius:7px;background:rgba(59,130,246,0.15);display:flex;align-items:center;justify-content:center;color:var(--blue)">${ic("refresh", 14)}</div><div><div style="font-weight:700">Auto-Sync</div><div style="font-size:11px;color:var(--muted)">Revisa las últimas 48 h (nuevas órdenes y cambios de estado)${lastAutoSync ? " · Último: " + fd(lastAutoSync.toISOString()) : ""}</div></div></div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted)" onclick="toggleAutoSync()">
+              <span>${settings.autoSync ? "Activo" : "Inactivo"}</span>
+              <div style="position:relative;width:42px;height:22px"><div style="position:absolute;inset:0;background:${settings.autoSync ? "var(--green)" : "rgba(255,255,255,0.1)"};border-radius:11px;transition:0.3s"></div><div style="position:absolute;top:2px;left:${settings.autoSync ? "22px" : "2px"};width:18px;height:18px;background:#fff;border-radius:50%;transition:0.3s"></div></div>
+            </label>
+          </div>
+          <div class="fx" style="gap:12px;flex-wrap:wrap">
+            <div class="fx" style="gap:6px"><span style="font-size:11px;color:var(--dim)">Intervalo:</span>${[2, 5, 10, 30].map(m => `<button class="btn ${settings.autoSyncMinutes === m ? "btn-ok" : "btn-s"}" style="padding:4px 10px;font-size:11px" onclick="settings.autoSyncMinutes=${m};saveSettings();startAutoSync();rApi()">${m} min</button>`).join("")}</div>
+            <button class="btn btn-p" style="padding:6px 14px;font-size:12px;margin-left:auto" onclick="autoSyncNow(true).then(()=>rApi())">Sync ahora</button>
+          </div>
+        </div>`;
+      }
+      APIS.forEach(a => {
+        const c = connected[a.id];
+        h += `<div class="card mb" style="border:${c ? "1px solid rgba(16,185,129,0.15)" : "1px solid var(--border)"}">`;
+        h += `<div class="fxb" style="margin-bottom:12px"><div class="fx"><div style="width:34px;height:34px;border-radius:8px;background:${c ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.06)"};display:flex;align-items:center;justify-content:center;font-size:16px">${a.icon}</div><div><div style="font-weight:700">${esc(a.name)} P2P</div><div style="font-size:11px;color:${c ? "var(--green)" : "var(--dim)"}">${a.mode === "file" ? "📄 Importación por archivo" : c ? `● Conectado · ${fd(c.connectedAt)} · <span class="mono">${esc(c.apiKey)}</span>` : "○ No conectado"}</div></div></div>${c ? `<span class="bg" style="background:rgba(16,185,129,0.18);color:var(--green);font-size:10px">${ic("shield", 12)} Cifrado</span>` : ""}</div>`;
+        if (a.mode === "file") {
+          h += `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${esc(a.note)}</div><div class="fxe"><button class="btn btn-s" onclick="openImport('${a.name === "KuCoin" ? "" : a.name}')">${ic("up", 14)} Importar archivo de ${esc(a.name)}</button></div>`;
+        } else if (!c) {
+          h += `<div class="${a.passphrase ? "g3" : "g2"}" style="gap:10px"><div><div class="lb">API Key (solo lectura)</div><input type="password" class="inp" id="ak-${a.id}" placeholder="API Key…" autocomplete="off"></div><div><div class="lb">API Secret</div><input type="password" class="inp" id="as-${a.id}" placeholder="Secret…" autocomplete="off"></div>${a.passphrase ? `<div><div class="lb">Passphrase</div><input type="password" class="inp" id="ap-${a.id}" placeholder="Passphrase…" autocomplete="off"></div>` : ""}</div><div id="am-${a.id}" style="margin-top:8px;font-size:12px"></div><div class="fxe" style="margin-top:10px"><button class="btn btn-p" onclick="connEx('${a.id}')">${ic("link", 14)} Conectar y Guardar</button></div>`;
+        } else {
+          h += `<div class="sync-box"><h4>${ic("cal", 14)} Sincronizar operaciones P2P</h4>
+            <div class="g2" style="gap:10px;margin-bottom:10px">
+              <div><div class="lb">Desde</div><input type="date" class="inp" id="sf-${a.id}" value="${daysAgo(6)}"></div>
+              <div><div class="lb">Hasta</div><input type="date" class="inp" id="st-${a.id}" value="${limaDay()}"></div>
+            </div>
+            <div class="quick-btns">${[["7d", 7], ["15d", 15], ["30d", 30], ["90d", 90], ["180d", 180]].map(([l, d]) => `<button class="btn btn-g" onclick="$('sf-${a.id}').value=daysAgo(${d - 1});$('st-${a.id}').value=limaDay()">${l}</button>`).join("")}</div>
+            <button class="btn btn-p btn-full" id="sb-${a.id}" onclick="syncEx('${a.id}')">${ic("refresh", 14)} Sincronizar ${esc(a.name)}</button>
+          </div>
+          <div id="sm-${a.id}" style="margin-bottom:10px;font-size:12px"></div>
+          <div class="fxe"><button class="btn btn-d" onclick="discEx('${a.id}')">${ic("x", 14)} Desconectar</button></div>`;
+        }
+        h += `</div>`;
+      });
+      if (logs.length) h += `<div class="card"><div class="fxb" style="margin-bottom:10px"><div class="h2" style="margin-bottom:0">Actividad</div><button class="btn btn-g" style="font-size:11px" onclick="logs=[];rApi()">Limpiar</button></div><div style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:3px">${logs.map(l => `<div class="fx" style="padding:5px 10px;background:rgba(255,255,255,0.02);border-radius:5px;border-left:3px solid ${l.t === "err" ? "var(--red)" : l.t === "ok" ? "var(--green)" : "#475569"};font-size:12px;color:var(--muted)"><span class="mono" style="font-size:10px;color:#475569;flex-shrink:0">${l.time}</span>${esc(l.m)}</div>`).join("")}</div></div>`;
+      $("pg-api").innerHTML = h;
+    }
+    async function connEx(id) {
+      const a = APIS.find(x => x.id === id);
+      const k = $("ak-" + id).value.trim(), s = $("as-" + id).value.trim(), p = a.passphrase ? $("ap-" + id).value.trim() : undefined;
+      if (!k || !s || (a.passphrase && !p)) { $("am-" + id).innerHTML = `<span style="color:var(--red)">Completa ${a.passphrase ? "API Key, Secret y Passphrase" : "API Key y Secret"}</span>`; return; }
+      try {
+        await api("/api/v1/exchange/connect", { method: "POST", body: { exchange: a.name, apiKey: k, apiSecret: s, passphrase: p } });
+        log(`${a.name}: conectado`, "ok"); toast(`${a.name} conectado`);
+        await loadConnected(); startAutoSync(); rApi();
+      } catch (e) { $("am-" + id).innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`; }
+    }
+    async function discEx(id) {
+      const a = APIS.find(x => x.id === id);
+      if (!confirm(`¿Desconectar ${a.name}? Se borran sus credenciales (tus operaciones se conservan).`)) return;
+      try { await api("/api/v1/exchange/" + id, { method: "DELETE" }); log(`${a.name}: desconectado`, "err"); toast(`${a.name} desconectado`); await loadConnected(); startAutoSync(); rApi(); }
+      catch (e) { toast(e.message, "err"); }
+    }
+    async function syncEx(id, from, to, silent) {
+      const a = APIS.find(x => x.id === id);
+      from = from || $("sf-" + id)?.value; to = to || $("st-" + id)?.value;
+      if (from && to && from > to) { toast("La fecha 'Desde' es posterior a 'Hasta'", "err"); return; }
+      const el = $("sm-" + id), btn = $("sb-" + id);
+      if (!silent && el) el.innerHTML = `<span style="color:var(--yellow)">${ic("refresh", 12)} Sincronizando ${esc(a.name)} (${from} → ${to})… puede tardar</span>`;
+      if (btn) btn.disabled = true;
+      try {
+        const r = await api("/api/v1/sync/" + id, { method: "POST", body: { startDate: from, endDate: to } });
+        const sc = (r.statusChanges || []).length;
+        const msg = `${r.totalFound} encontradas · ${r.newImported} nuevas · ${r.updated} actualizadas${sc ? ` (${sc} cambios de estado)` : ""} · ${r.unchanged} sin cambios`;
+        log(`${a.name}: ${msg}`, "ok");
+        if (el) el.innerHTML = `<span style="color:var(--green)">${ic("ok", 12)} ${msg}</span>`;
+        if (!silent || r.newImported || r.updated) toast(`${a.name}: ${r.newImported} nuevas, ${r.updated} actualizadas`);
+        if (r.newImported || r.updated) { await loadTrades(); refreshIssueCount(); if (page === "dashboard") rDash(); else if (page === "trades") fTrades(); }
+      } catch (e) {
+        log(`${a.name}: ${e.message}`, "err");
+        if (el) el.innerHTML = `<span style="color:var(--red)">${ic("x", 12)} ${esc(e.message)}</span>${e.data?.problems?.length ? `<div style="font-size:11px;color:var(--dim);margin-top:4px">${e.data.problems.slice(0, 5).map(esc).join("<br>")}</div>` : ""}`;
+        if (!silent) toast(`${a.name}: error al sincronizar`, "err");
+      } finally { if (btn) btn.disabled = false; }
+    }
+    function toggleAutoSync() { settings.autoSync = !settings.autoSync; saveSettings(); startAutoSync(); log(`Auto-sync ${settings.autoSync ? "activado" : "desactivado"}`, "ok"); rApi(); }
+    function startAutoSync() {
+      if (autoSyncInterval) clearInterval(autoSyncInterval);
+      autoSyncInterval = null;
+      if (!settings.autoSync || !APIS.some(a => a.mode === "api" && connected[a.id])) return;
+      autoSyncInterval = setInterval(() => autoSyncNow(false), settings.autoSyncMinutes * 60000);
+    }
+    async function autoSyncNow(manual) {
+      for (const a of APIS.filter(x => x.mode === "api" && connected[x.id])) await syncEx(a.id, daysAgo(2), limaDay(), !manual);
+      lastAutoSync = new Date();
+    }
+
+    // ==================== INCIDENCIAS ====================
+    async function rIssues(sev = "") {
+      const d = await api("/api/v1/issues" + qs({ severity: sev }));
+      const list = d.issues;
+      const count = s => list.filter(i => i.severity === s).length;
+      let h = `<div class="fxb mb2"><div><h2 class="h1">Incidencias</h2><p style="color:var(--dim);margin-top:4px">Nada se corrige en silencio: cada inconsistencia se muestra con su motivo.</p></div><select class="sel" style="width:auto" onchange="rIssues(this.value)"><option value="">Todas</option>${Object.entries(SEV).map(([k, v]) => `<option value="${k}"${k === sev ? " selected" : ""}>${v[0]}</option>`).join("")}</select></div>`;
+      if (!sev) h += `<div class="g3 mb">${statCard("Errores", count("error"), "operaciones excluidas de los cálculos", "#ef4444")}${statCard("Advertencias", count("warning"), "revisar, pero se contabilizan", "#eab308")}${statCard("Información", count("info"), "datos derivados, inventario abierto…", "#3b82f6")}</div>`;
+      h += `<div class="card" style="padding:0;overflow:auto"><table><thead><tr><th>Severidad</th><th>Fecha</th><th>Par</th><th>Exchange</th><th>N° Orden</th><th>Detalle</th><th></th></tr></thead><tbody>${list.length ? list.slice(0, 1000).map(i => `<tr><td><span class="bg" style="background:${SEV[i.severity][1]}20;color:${SEV[i.severity][1]}">${SEV[i.severity][0]}</span></td><td style="font-size:12px;color:var(--muted);white-space:nowrap">${i.dateUtc ? fd(i.dateUtc) : "—"}</td><td style="color:var(--yellow)">${esc(i.pair || "")}</td><td>${esc(i.exchange || "")}</td><td class="mono" style="font-size:11px">${esc(i.orderId || "")}</td><td style="font-size:12px">${esc(i.message)}</td><td>${i.tradeId ? `<button class="btn-g" title="Ver operación" onclick="openTraceById('${esc(i.tradeId)}')">${ic("info", 14)}</button>` : ""}</td></tr>`).join("") : `<tr><td colspan="7" class="empty">Sin incidencias 🎉</td></tr>`}</tbody></table></div>`;
+      $("pg-issues").innerHTML = h;
+    }
+    async function openTraceById(id) { if (!trades.find(t => t.id === id)) await loadTrades(); openTrace(id); }
+
+    // ==================== CONFIGURACIÓN ====================
+    async function rSettings() {
+      const [bat, all] = await Promise.all([api("/api/v1/import/batches"), api("/api/v1/trades?includeDeleted=true")]);
+      const deleted = all.trades.filter(t => t.deleted);
+      const KIND = { file: "Archivo", api: "API", migration: "Migración", "legacy-import": "Importación", manual: "Manual" };
+      const batches = bat.batches.filter(b => b.kind !== "manual");
+      $("pg-settings").innerHTML = `<h2 class="h1 mb2">Configuración</h2>
+        <div class="card mb"><div class="h2">Perfil y valores por defecto</div>
+          <div class="g4" style="gap:12px">
+            <div><div class="lb">Tu nombre (aparece en el Excel)</div><input class="inp" id="s-name" value="${esc(settings.name)}" placeholder="Nombre o razón social"></div>
+            <div><div class="lb">Exchange</div><select class="sel" id="s-ex">${opts(EX, settings.exchange)}</select></div>
+            <div><div class="lb">Crypto</div><select class="sel" id="s-cr">${opts(CR, settings.crypto)}</select></div>
+            <div><div class="lb">Fiat</div><select class="sel" id="s-fi">${opts(FI, settings.fiat)}</select></div>
+          </div>
+          <div class="fxe mt"><button class="btn btn-p" onclick="saveProfile()">${ic("ok", 14)} Guardar</button></div>
+        </div>
+        <div class="card mb"><div class="h2">Importaciones y sincronizaciones</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:10px">«Deshacer» elimina las operaciones que llegaron <b>solo</b> en ese lote (quedan en el historial y se pueden restaurar).</p>
+          <div class="scroll-y"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Origen</th><th class="num">Nuevas</th><th class="num">Actualizadas</th><th class="num">Rechazadas</th><th></th></tr></thead><tbody>${batches.length ? batches.slice(0, 200).map(b => `<tr><td style="font-size:12px;white-space:nowrap">${fd(b.at)}</td><td>${KIND[b.kind] || esc(b.kind)}</td><td>${esc(b.file || b.exchange || "")}</td><td class="num">${b.inserted ?? 0}</td><td class="num">${b.updated ?? 0}</td><td class="num">${b.rejected ?? b.quarantined ?? 0}</td><td>${b.undoneAt ? `<span class="tag">deshecho</span>` : b.kind !== "migration" ? `<button class="btn btn-d" style="padding:4px 10px;font-size:11px" onclick="undoBatch('${esc(b.id)}')">Deshacer</button>` : ""}</td></tr>`).join("") : `<tr><td colspan="7" class="empty">Aún no hay importaciones.</td></tr>`}</tbody></table></div>
+        </div>
+        <div class="card"><div class="h2">Operaciones eliminadas (${deleted.length})</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:10px">No se contabilizan ni se vuelven a importar. Puedes restaurarlas.</p>
+          <div class="scroll-y"><table><tbody>${deleted.length ? deleted.map(t => `<tr><td style="font-size:12px;white-space:nowrap">${fd(t.dateUtc)}</td><td>${esc(t.exchange)}</td><td class="mono" style="font-size:11px">${esc(t.orderId || "—")}</td><td>${t.type}</td><td class="num">${fc(t.exact?.total ?? t.total, t.fiat)}</td><td><button class="btn btn-ok" style="padding:4px 10px;font-size:11px" onclick="restoreTrade('${esc(t.id)}')">Restaurar</button></td></tr>`).join("") : `<tr><td class="empty">No hay operaciones eliminadas.</td></tr>`}</tbody></table></div>
+        </div>`;
+    }
+    function saveProfile() {
+      settings.name = $("s-name").value.trim(); settings.exchange = $("s-ex").value; settings.crypto = $("s-cr").value; settings.fiat = $("s-fi").value;
+      saveSettings(); nav(); toast("Configuración guardada");
+    }
+    async function undoBatch(id) {
+      if (!confirm("¿Deshacer este lote?")) return;
+      try { const r = await api("/api/v1/import/batches/" + encodeURIComponent(id), { method: "DELETE" }); toast(`${r.removed} operación(es) eliminadas`); await loadTrades(); refreshIssueCount(); rSettings(); }
+      catch (e) { toast(e.message, "err"); }
+    }
+    async function restoreTrade(id) {
+      try { await api(`/api/v1/trades/${encodeURIComponent(id)}/restore`, { method: "POST" }); toast("Operación restaurada"); await loadTrades(); refreshIssueCount(); rSettings(); }
+      catch (e) { toast(e.message, "err"); }
+    }
+
+    // ==================== REGISTRO RÁPIDO ====================
+    let qType = "compra";
+    function toggleQuick() {
+      const p = $("qp");
+      if (!p.classList.contains("open")) {
+        qType = "compra";
+        const fi = settings.fiat;
+        p.innerHTML = `
+          <div class="fxb" style="margin-bottom:14px"><span style="font-weight:700;font-size:15px">${ic("bolt", 18)} Registro Rápido</span><button class="btn-g" onclick="toggleQuick()">${ic("x", 16)}</button></div>
+          <div class="tg-group" style="margin-bottom:12px"><button class="tg-btn buy" id="qb-buy" onclick="qSetT('compra')">⬇ Compra</button><button class="tg-btn" id="qb-sell" onclick="qSetT('venta')">⬆ Venta</button></div>
+          <div class="g2" style="gap:8px">
+            <div><div class="lb">Exchange</div><select class="sel" id="q-ex">${opts(EX, settings.exchange)}</select></div>
+            <div><div class="lb">Par</div><div class="fx" style="gap:4px"><select class="sel" id="q-cr">${opts(CR, settings.crypto)}</select><select class="sel" id="q-fi" onchange="$('q-pm').innerHTML=opts(gpm(this.value))">${opts(FI, fi)}</select></div></div>
+            <div><div class="lb">Cantidad</div><input type="number" step="any" min="0" class="inp" id="q-amt" oninput="qTot()"></div>
+            <div><div class="lb">Precio</div><input type="number" step="any" min="0" class="inp" id="q-pr" oninput="qTot()"></div>
+            <div><div class="lb">Total</div><input type="number" step="any" min="0" class="inp inp-green" id="q-tot" oninput="this.dataset.manual='1'"></div>
+            <div><div class="lb">Método</div><select class="sel" id="q-pm">${opts(gpm(fi))}</select></div>
+            <div><div class="lb">Comisión % (en cripto)</div><input type="number" step="any" min="0" class="inp" id="q-fee" value="0"></div>
+            <div><div class="lb">Contraparte</div><input class="inp" id="q-cp" placeholder="usuario P2P"></div>
+          </div>
+          <div id="q-err"></div>
+          <button class="btn btn-p btn-full" id="q-save" style="margin-top:12px;padding:12px 0;font-size:14px" onclick="qSave()">${ic("bolt", 16)} Registrar</button>`;
+        p.classList.add("open"); $("fab").style.display = "none";
+      } else { p.classList.remove("open"); $("fab").style.display = "flex"; }
+    }
+    function qTot() { const t = $("q-tot"); const a = parseFloat($("q-amt").value), p = parseFloat($("q-pr").value); if (t.dataset.manual !== "1" && a > 0 && p > 0) t.value = String(Math.round(a * p * 100) / 100); }
+    function qSetT(t) { qType = t; $("qb-buy").className = `tg-btn${t === "compra" ? " buy" : ""}`; $("qb-sell").className = `tg-btn${t === "venta" ? " sell" : ""}`; }
+    async function qSave() {
+      const a = parseFloat($("q-amt").value) || 0, p = parseFloat($("q-pr").value) || 0, pct = parseFloat($("q-fee").value) || 0;
+      if (!(a > 0) || !(p > 0)) { $("q-err").innerHTML = `<div class="msg err mt">Ingresa cantidad y precio</div>`; return; }
+      $("q-save").disabled = true;
+      try {
+        await api("/api/v1/trades", { method: "POST", body: { type: qType, date: limaInput(), exchange: $("q-ex").value, crypto: $("q-cr").value, fiat: $("q-fi").value, amount: String(a), price: String(p), total: $("q-tot").value || undefined, fee: pct > 0 ? String(a * pct / 100) : "0", feeType: "crypto", payMethod: $("q-pm").value, counterparty: $("q-cp").value.trim(), status: "completado", notes: "Registro rápido" } });
+        toggleQuick(); toast(`${qType === "compra" ? "Compra" : "Venta"} registrada ⚡`);
+        await loadTrades(); refreshIssueCount(); render();
+      } catch (e) { $("q-err").innerHTML = `<div class="msg err mt">${esc(e.message)}</div>`; $("q-save").disabled = false; }
+    }
+
+    // ==================== INIT ====================
+    async function init() {
+      nav();
+      try {
+        const h = await api("/health");
+        $("backend-status").textContent = `Backend v${h.version} · ${h.trades} ops`;
+      } catch (e) {
+        $("backend-status").textContent = "Sin conexión al backend";
+        $("pg-dashboard").innerHTML = `<div class="card empty"><div class="msg err">No se pudo conectar con el backend. Verifica que <b>npm start</b> esté corriendo y recarga la página.</div></div>`;
+        return;
+      }
+      await Promise.all([loadTrades().catch(e => toast(e.message, "err")), loadConnected()]);
+      nav(); render(); refreshIssueCount();
+      startAutoSync();
+      if (!window.Chart) log("No se cargó Chart.js (sin internet): los gráficos no se mostrarán.", "err");
+    }
+    init();
+  </script>
+</body>
+
+</html>
