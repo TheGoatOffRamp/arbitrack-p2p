@@ -1,5 +1,5 @@
 // Genera un libro de ejemplo con datos ficticios para revisar el formato del Excel.
-// Uso: node examples/generar-ejemplo.js  → examples/ArbiTrack_ejemplo.xlsx
+// Uso: node examples/generar-ejemplo.js  → examples/ArbiTrack_ejemplo.xlsx y examples/ArbiTrack_ejemplo.pdf
 const fs = require('fs'); const os = require('os'); const path = require('path');
 process.env.NODE_ENV = 'test';
 const { createApp } = require('../src/app');
@@ -26,6 +26,8 @@ ED-1004;Venta;USDT;PEN;250,00;3,768;942,00;0;Completado;16/09/2026 10:30;Carla`;
   await post('/costs', { date: '2026-09-30 12:00', pair: 'USDT/PEN', asset: 'PEN', amount: 4.5, description: 'Comisiones bancarias del mes' });
   const r = await fetch(`${B}/export/excel`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ from: '2026-09-01', to: '2026-09-30', userName: 'Ejemplo' }) });
   fs.writeFileSync(path.join(__dirname, 'ArbiTrack_ejemplo.xlsx'), Buffer.from(await r.arrayBuffer()));
+  const pdf = await fetch(`${B}/export/pdf?from=2026-09-01&to=2026-09-30&userName=Ejemplo`);
+  fs.writeFileSync(path.join(__dirname, 'ArbiTrack_ejemplo.pdf'), Buffer.from(await pdf.arrayBuffer()));
   const st = await fetch(`${B}/stats`).then((x) => x.json());
   console.log(JSON.stringify(st.byPair.map((p) => ({ pair: p.pair, net: p.netProfit, gross: p.grossProfit, fees: p.fees, other: p.otherCosts, inv: p.inventoryQty })), null, 1));
   srv.close();

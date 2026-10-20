@@ -1131,13 +1131,17 @@
             ${[["7 días", 7], ["15 días", 15], ["30 días", 30], ["90 días", 90]].map(([l, d]) => `<button class="btn btn-s" style="padding:5px 12px;font-size:11px" onclick="$('ex-from').value=daysAgo(${d - 1});$('ex-to').value=limaDay();updateExportPreview()">${l}</button>`).join("")}
             <button class="btn btn-s" style="padding:5px 12px;font-size:11px;background:rgba(16,185,129,0.15);color:var(--green)" onclick="$('ex-from').value='';$('ex-to').value='';updateExportPreview()">Todo</button>
           </div>
+          <div class="fx" style="gap:6px;flex-wrap:wrap;margin-top:6px">
+            ${[["Este mes", "month", 0], ["Mes anterior", "month", -1], ["Este año", "year", 0], ["Año anterior", "year", -1]].map(([l, k, o]) => `<button class="btn btn-s" style="padding:5px 12px;font-size:11px" onclick="setExportPeriod('${k}', ${o})">${l}</button>`).join("")}
+          </div>
         </div>
         <div id="ex-preview" style="font-size:12px;color:var(--muted);margin-bottom:14px"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <button class="btn btn-p btn-full" onclick="doExportExcel()">📊 Excel contable (.xlsx)</button>
-          <button class="btn btn-s btn-full" onclick="doExportCSV()">📄 CSV de operaciones</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <button class="btn btn-p btn-full" onclick="doExportExcel()">📊 Excel contable</button>
+          <button class="btn btn-p btn-full" onclick="doExportPdf()">🧾 Reporte PDF</button>
+          <button class="btn btn-s btn-full" onclick="doExportCSV()">📄 CSV</button>
         </div>
-        <div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.6">El Excel incluye resumen por mercado, operaciones, ciclos, trazabilidad FIFO, comisiones, resultados por exchange y por mes, operaciones excluidas e incidencias.</div>`;
+        <div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.6"><b>Para tu contador:</b> envía el <b>Reporte PDF</b> (resumen de resultados por mercado, por mes y por exchange, con controles y notas) junto con el <b>Excel contable</b> del mismo período, que tiene el detalle: operaciones, ciclos, trazabilidad FIFO, comisiones, excluidas e incidencias.</div>`;
       updateExportPreview();
       $("ov").classList.add("open");
     }
@@ -1153,6 +1157,23 @@
       const list = trades.filter(t => inRange(t, r));
       const el = $("ex-preview");
       if (el) el.innerHTML = `${list.length} operaciones en el rango · ${list.filter(t => t.countable).length} se contabilizan · ${list.filter(t => !t.countable).length} excluidas (pendientes, canceladas o con error)`;
+    }
+    // Mes o año calendario en hora de Lima; offset -1 = el anterior.
+    function setExportPeriod(kind, offset) {
+      const [y, m] = limaDay().split("-").map(Number);
+      const pad = n => String(n).padStart(2, "0");
+      if (kind === "year") { const yy = y + offset; $("ex-from").value = `${yy}-01-01`; $("ex-to").value = `${yy}-12-31`; }
+      else {
+        const d = new Date(Date.UTC(y, m - 1 + offset, 1));
+        const yy = d.getUTCFullYear(), mm = d.getUTCMonth() + 1, last = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+        $("ex-from").value = `${yy}-${pad(mm)}-01`; $("ex-to").value = `${yy}-${pad(mm)}-${pad(last)}`;
+      }
+      updateExportPreview();
+    }
+    function doExportPdf() {
+      const r = exportRange(); if (!r) return;
+      window.location.href = "/api/v1/export/pdf" + qs({ from: r.from, to: r.to, userName: settings.name });
+      toast("Generando reporte PDF…"); closeForm();
     }
     function doExportExcel() {
       const r = exportRange(); if (!r) return;

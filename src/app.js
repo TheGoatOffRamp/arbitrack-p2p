@@ -17,8 +17,9 @@ const { analyze } = require('./importers/importer');
 const { ADAPTERS, UNSUPPORTED } = require('./exchanges/adapters');
 const { compute, toJSONSafe } = require('./accounting/engine');
 const { buildWorkbook } = require('./accounting/excel');
+const { buildPdf } = require('./accounting/pdf');
 
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 
 class HttpError extends Error { constructor(status, message, extra) { super(message); this.status = status; this.extra = extra; } }
 const bad = (msg, extra) => new HttpError(400, msg, extra);
@@ -573,6 +574,19 @@ function createApp(opts = {}) {
   });
   app.post('/api/v1/export/excel', exportExcel);
   app.get('/api/v1/export/excel', exportExcel);
+
+  const exportPdf = wrap(async (req, res) => {
+    const q = { ...req.query, ...(req.body || {}) };
+    const rep = report(q);
+    const buf = await buildPdf(rep, { trades: store.read().trades, userName: q.userName || req.user?.name, userEmail: req.user?.email, fromLabel: q.from, toLabel: q.to });
+    const fname = `ArbiTrack_Reporte_${String(q.from || 'inicio').slice(0, 10)}_${String(q.to || new Date().toISOString()).slice(0, 10)}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+    res.end(buf);
+    log('EXPORT', `${fname}: ${rep.pairs.length} pares`);
+  });
+  app.post('/api/v1/export/pdf', exportPdf);
+  app.get('/api/v1/export/pdf', exportPdf);
 
   app.get('/api/v1/audit', (req, res) => res.json({ audit: store.read().audit.slice(-500).reverse() }));
 

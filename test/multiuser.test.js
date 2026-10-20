@@ -50,7 +50,7 @@ if (!URL_DB) {
 
   test('sin sesión no hay acceso a los datos', async () => {
     const b = browser();
-    for (const [m, u] of [['GET', '/api/v1/trades'], ['GET', '/api/v1/stats'], ['GET', '/api/v1/export/excel'], ['POST', '/api/v1/trades'], ['GET', '/api/v1/auth/me']]) {
+    for (const [m, u] of [['GET', '/api/v1/trades'], ['GET', '/api/v1/stats'], ['GET', '/api/v1/export/excel'], ['GET', '/api/v1/export/pdf'], ['POST', '/api/v1/trades'], ['GET', '/api/v1/auth/me']]) {
       const r = await b(m, u, m === 'POST' ? trade() : undefined);
       assert.equal(r.status, 401, `${m} ${u}`);
     }

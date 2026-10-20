@@ -1,4 +1,4 @@
-# ArbiTrack P2P — v2.1 (multiusuario)
+# ArbiTrack P2P — v2.2 (multiusuario)
 
 Registro, seguimiento y control contable de operaciones de arbitraje P2P entre exchanges y monedas.
 
@@ -187,9 +187,21 @@ Perfiles incluidos: Binance, Bybit, Bitget, OKX, El Dorado y uno genérico. El g
 | GET | `/api/v1/report` | Resultado completo (pares, ciclos, FIFO, comisiones, incidencias) |
 | GET | `/api/v1/issues` | Incidencias (`severity=error|warning|info`) |
 | GET / POST | `/api/v1/export/excel` | Excel contable (`from`, `to`, `userName`) |
+| GET / POST | `/api/v1/export/pdf` | Reporte PDF para el contador (`from`, `to`, `userName`) |
 | GET | `/api/v1/audit` | Registro de acciones |
 
-## 5. Excel contable
+## 5. Exportación para el contador
+
+En la app: **Operaciones → Exportar**, elegir el período (atajos: este mes, mes anterior, este año, año anterior) y:
+
+- **Reporte PDF** (`GET /api/v1/export/pdf?from&to&userName`): resumen imprimible con resultado FIFO por mercado, por mes y por exchange,
+  inventario final, controles de conciliación, calidad de los datos y notas metodológicas. Avisa en la primera página si hay incidencias de tipo error.
+- **Excel contable**: el detalle (ver abajo).
+- **CSV** de operaciones.
+
+Lo recomendado es enviar al contador el PDF y el Excel del mismo período. Ejemplos: `npm run ejemplo` → `examples/ArbiTrack_ejemplo.pdf` y `.xlsx`.
+
+### Excel contable
 
 Hojas: **Resumen** (estado de resultados por par con controles) · **Operaciones** · **Ciclos** (con neta acumulada por fórmula) · **Trazabilidad FIFO** · **Por moneda** (totales con `SUMIFS` verificables) · **Por exchange** · **Por período** · **Comisiones** · **Otros costos** · **Excluidas** · **Incidencias** · **Metodología**.
 Fechas como fechas reales de Excel en hora de Lima, importes como números, filtros y encabezados fijos, impresión horizontal ajustada al ancho.
@@ -230,5 +242,6 @@ src/importers/               lectura CSV/XLSX, perfiles por exchange, análisis
 src/exchanges/               clientes API (Binance, Bybit, Bitget) con reintentos
 src/accounting/engine.js     motor FIFO, ciclos, conciliación
 src/accounting/excel.js      reporte Excel
+src/accounting/pdf.js        reporte PDF para el contador
 test/                        pruebas (node --test)
 ```
