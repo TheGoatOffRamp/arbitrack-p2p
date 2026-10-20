@@ -55,19 +55,13 @@ function limiter({ max, windowMs }) {
   };
 }
 
-const consoleMailer = {
-  async send({ to, subject, text }) {
-    console.log(`[MAIL] (sin SMTP configurado) Para: ${to} · ${subject}\n${text}`);
-  },
-};
-
 const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, createdAt: u.created_at });
 
 /**
  * Rutas /api/v1/auth/* y middleware `requireUser` que carga req.user.
  * `HttpError` y `wrap` vienen de app.js para mantener el mismo formato de errores.
  */
-function createAuth({ pool, HttpError, wrap, mailer = consoleMailer, publicUrl, secureCookies, log, limits = {} }) {
+function createAuth({ pool, HttpError, wrap, mailer, publicUrl, secureCookies, log, limits = {} }) {
   const bad = (msg) => new HttpError(400, msg);
   const loginLimit = limiter({ max: 10, windowMs: 15 * 60 * 1000 });
   const signupLimit = limiter({ max: limits.signupsPerHour || 10, windowMs: 60 * 60 * 1000 });
@@ -189,12 +183,16 @@ function createAuth({ pool, HttpError, wrap, mailer = consoleMailer, publicUrl, 
       const token = newToken();
       await pool.query('INSERT INTO password_resets (id, user_id, expires_at) VALUES ($1, $2, $3)',
         [sha256(token), rows[0].id, new Date(Date.now() + RESET_MINUTES * 60000)]);
+      // En producción publicUrl es obligatoria: armar el enlace con el Host de la petición permitiría a un atacante apuntarlo a su dominio.
       const base = publicUrl || `${req.protocol}://${req.get('host')}`;
-      await mailer.send({
-        to: rows[0].email,
-        subject: 'ArbiTrack P2P · Restablecer contraseña',
-        text: `Para crear una nueva contraseña abre este enlace (vence en ${RESET_MINUTES} minutos):\n${base}/login.html?reset=${token}\n\nSi no lo pediste, ignora este mensaje.`,
-      });
+      // Un fallo del proveedor de email se registra pero no se revela: la respuesta debe ser igual exista o no la cuenta.
+      try {
+        await mailer.send({
+          to: rows[0].email,
+          subject: 'ArbiTrack P2P · Restablecer contraseña',
+          text: `Para crear una nueva contraseña abre este enlace (vence en ${RESET_MINUTES} minutos):\n${base}/login.html?reset=${token}\n\nSi no lo pediste, ignora este mensaje.`,
+        });
+      } catch (err) { log('MAIL', `recuperación para ${rows[0].id} falló: ${err.message}`); }
     }
     res.json(generic);
   }));

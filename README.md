@@ -1,4 +1,4 @@
-# ArbiTrack P2P — v2.2 (multiusuario)
+# ArbiTrack P2P — v2.3 (multiusuario)
 
 Registro, seguimiento y control contable de operaciones de arbitraje P2P entre exchanges y monedas.
 
@@ -40,8 +40,7 @@ DATABASE_URL=... ARBITRACK_SECRET=... npm run importar-local -- --email tu@corre
 Rutas nuevas: `POST /api/v1/auth/register` · `login` · `logout` · `GET/PUT /api/v1/auth/me` · `POST /api/v1/auth/password/change` ·
 `password/forgot` · `password/reset` · `DELETE /api/v1/auth/account`.
 
-> Pendiente para publicar (paso 4 del plan): configurar un servicio de email (hoy los enlaces de recuperación se escriben en el log del servidor),
-> hosting con HTTPS y respaldos de la base de datos, y política de privacidad / términos de uso (Ley 29733).
+**Publicar en internet:** ver [docs/PUBLICAR.md](docs/PUBLICAR.md) (Render + PostgreSQL con `render.yaml`, dominio, emails con Resend, respaldos y aspectos legales). También hay un `Dockerfile` para otros hostings.
 
 ---
 
@@ -219,10 +218,12 @@ Fechas como fechas reales de Excel en hora de Lima, importes como números, filt
 | `ARBITRACK_CORS` | localhost | Orígenes permitidos adicionales (coma) |
 | `DATABASE_URL` | — | PostgreSQL. Si está definida, activa el **modo multiusuario** (y `HOST` pasa a `0.0.0.0`) |
 | `ARBITRACK_SECRET` | — | En modo multiusuario es **obligatoria** (mín. 32 caracteres). No la cambies: sin ella no se pueden descifrar las API keys guardadas |
-| `ARBITRACK_PUBLIC_URL` | — | URL pública (para los enlaces de recuperación de contraseña) |
+| `ARBITRACK_PUBLIC_URL` | — | URL pública para los enlaces de los emails. **Obligatoria** con `NODE_ENV=production` |
 | `ARBITRACK_TRUST_PROXY` | — | `1` si la web está detrás del proxy del hosting (IP real del usuario para los límites de intentos) |
 | `NODE_ENV` | — | `production` activa cookies `Secure` (solo HTTPS) |
 | `PGSSL` | — | `true` para conectar a PostgreSQL con SSL |
+| `RESEND_API_KEY` | — | Clave de Resend para enviar emails. Sin ella, los emails solo se escriben en el log |
+| `MAIL_FROM` | — | Remitente, p. ej. `ArbiTrack <no-responder@tu-dominio.com>` (obligatoria con `RESEND_API_KEY`) |
 
 ## 7. Estructura
 

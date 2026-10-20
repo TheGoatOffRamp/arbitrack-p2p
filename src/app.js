@@ -8,6 +8,7 @@ const { Store } = require('./store');
 const { Secrets, mask, deriveKey } = require('./secrets');
 const { PgLedger, PgSecrets } = require('./db');
 const { createAuth } = require('./auth');
+const { createMailer } = require('./mailer');
 const { mergeTrades, audit } = require('./ledger');
 const { buildTrade, validateTrade, isCountable, present, canonicalExchange, slug, EDITABLE_FIELDS, STATUS, dedupKey } = require('./model');
 const { rangeBoundary, DEFAULT_TZ, assertTz, toLocalMinute } = require('./dates');
@@ -19,7 +20,7 @@ const { compute, toJSONSafe } = require('./accounting/engine');
 const { buildWorkbook } = require('./accounting/excel');
 const { buildPdf } = require('./accounting/pdf');
 
-const VERSION = '2.2.0';
+const VERSION = '2.3.0';
 
 class HttpError extends Error { constructor(status, message, extra) { super(message); this.status = status; this.extra = extra; } }
 const bad = (msg, extra) => new HttpError(400, msg, extra);
@@ -68,6 +69,20 @@ function createApp(opts = {}) {
 
   const app = express();
   app.disable('x-powered-by');
+  // Cabeceras de seguridad. La interfaz usa scripts y estilos en línea, Google Fonts y Chart.js (cdnjs).
+  app.use((req, res, next) => {
+    res.setHeader('Content-Security-Policy', [
+      "default-src 'self'", "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data: blob:", "connect-src 'self'", "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self'",
+    ].join('; '));
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'same-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (multiUser && process.env.NODE_ENV === 'production') res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   if (opts.trustProxy ?? process.env.ARBITRACK_TRUST_PROXY) app.set('trust proxy', Number(opts.trustProxy ?? process.env.ARBITRACK_TRUST_PROXY) || 1);
 
   const allowed = (process.env.ARBITRACK_CORS || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -90,10 +105,12 @@ function createApp(opts = {}) {
       if (host === req.get('host') || allowed.includes(origin)) return next();
       return res.status(403).json({ error: 'Origen no permitido' });
     });
+    const production = process.env.NODE_ENV === 'production';
+    const publicUrl = (opts.publicUrl ?? process.env.ARBITRACK_PUBLIC_URL ?? '').replace(/\/+$/, '') || null;
+    if (production && !publicUrl) throw new Error('En producción defina ARBITRACK_PUBLIC_URL (p. ej. https://arbitrack.pe): se usa en los enlaces de los emails.');
     const auth = createAuth({
-      pool, HttpError, wrap, log, mailer: opts.mailer, limits: opts.authLimits,
-      publicUrl: opts.publicUrl ?? process.env.ARBITRACK_PUBLIC_URL,
-      secureCookies: opts.secureCookies ?? (process.env.NODE_ENV === 'production' || process.env.ARBITRACK_SECURE_COOKIES === 'true'),
+      pool, HttpError, wrap, log, mailer: opts.mailer || createMailer({ log: (m) => log('MAIL', m) }), limits: opts.authLimits, publicUrl,
+      secureCookies: opts.secureCookies ?? (production || process.env.ARBITRACK_SECURE_COOKIES === 'true'),
     });
     app.use('/api/v1/auth', auth.router);
     app.use('/api', auth.requireUser, wrap(async (req, res, next) => {

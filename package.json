@@ -1,6 +1,6 @@
 {
   "name": "arbitrack-backend",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "ArbiTrack P2P — registro y control contable de arbitraje P2P multiusuario (Binance, Bybit, Bitget, OKX, El Dorado)",
   "main": "server.js",
   "directories": {

@@ -1,0 +1,39 @@
+# Render Blueprint: crea la web y la base de datos PostgreSQL en un paso.
+# Render → New → Blueprint → elegir este repositorio. Ver docs/PUBLICAR.md.
+services:
+  - type: web
+    name: arbitrack
+    runtime: node
+    plan: starter
+    region: virginia
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: arbitrack-db
+          property: connectionString
+      - key: ARBITRACK_SECRET
+        generateValue: true # se genera una sola vez; guárdala aparte (sin ella no se descifran las API keys)
+      - key: ARBITRACK_TRUST_PROXY
+        value: "1"
+      - key: ARBITRACK_TZ
+        value: America/Lima
+      - key: ARBITRACK_PUBLIC_URL
+        sync: false # p. ej. https://arbitrack.pe
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false # p. ej. ArbiTrack <no-responder@arbitrack.pe>
+
+databases:
+  - name: arbitrack-db
+    plan: basic-256mb
+    region: virginia
+    postgresMajorVersion: "16"
