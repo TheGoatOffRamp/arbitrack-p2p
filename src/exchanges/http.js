@@ -25,6 +25,10 @@ async function requestJson(url, o = {}) {
       const res = await f(url, { method: o.method || 'GET', headers: o.headers, body: o.body, signal: ctrl.signal });
       const text = await res.text();
       clearTimeout(timer);
+      if (res.status === 451 || res.status === 403 && /restricted location|eligibility/i.test(text)) {
+        throw new ApiError(`${o.label || 'API'}: el exchange bloquea conexiones desde el país del servidor (HTTP ${res.status}). `
+          + 'El servidor de ArbiTrack debe estar fuera de EE.UU. (p. ej. región Frankfurt en Render).', { status: res.status });
+      }
       if (res.status === 429 || res.status === 418 || res.status >= 500) {
         const ra = Number(res.headers?.get?.('retry-after'));
         lastErr = new ApiError(`${o.label || 'API'}: HTTP ${res.status}${res.status === 429 ? ' (límite de consultas)' : ''}`, { status: res.status, retryable: true });

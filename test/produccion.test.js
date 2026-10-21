@@ -48,3 +48,9 @@ test('en producción multiusuario ARBITRACK_PUBLIC_URL es obligatoria', () => {
     assert.doesNotThrow(() => createApp({ pool: {}, secret: 'x'.repeat(40), publicUrl: 'https://arbitrack.test/', mailer: { send: async () => {} } }));
   } finally { process.env.NODE_ENV = prev; }
 });
+
+test('exchange bloqueado por país (HTTP 451): mensaje claro', async () => {
+  const { requestJson } = require('../src/exchanges/http');
+  const fetchImpl = async () => ({ status: 451, text: async () => '{"code":0,"msg":"Service unavailable from a restricted location"}', headers: { get: () => null } });
+  await assert.rejects(requestJson('https://api.binance.com/x', { label: 'Binance', fetchImpl, retries: 0 }), /bloquea conexiones desde el país del servidor.*Frankfurt/);
+});
