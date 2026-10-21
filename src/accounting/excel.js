@@ -92,7 +92,7 @@ async function buildWorkbook(rep, ctx) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'ArbiTrack P2P';
   wb.created = new Date();
-  const periodLabel = `Período: ${ctx.fromLabel || 'inicio'} → ${ctx.toLabel || 'hoy'} · Horas en ${tz} (UTC${tz === 'America/Lima' ? '−05:00' : ''})`;
+  const periodLabel = `${ctx.scopeLabel ? `${ctx.scopeLabel} · ` : ''}Período: ${ctx.fromLabel || 'inicio'} → ${ctx.toLabel || 'hoy'} · Horas en ${tz} (UTC${tz === 'America/Lima' ? '−05:00' : ''})`;
   const gen = `Generado: ${toLocalFull(Date.now(), tz)} · Titular: ${ctx.userName || '—'}`;
 
   const inPeriod = (iso) => { const ms = Date.parse(iso); return (rep.period.fromMs === null || ms >= rep.period.fromMs) && (rep.period.toMs === null || ms < rep.period.toMs); };

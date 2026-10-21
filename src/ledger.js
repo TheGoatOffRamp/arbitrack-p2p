@@ -60,6 +60,12 @@ function mergeTrades(state, incoming, { batchId, origin }) {
       changes.push({ field: f, from: ex[f], to: t[f] });
     }
     if (!ex.batchIds.includes(batchId)) ex.batchIds.push(batchId);
+    if (changes.length && ex.closingId) {
+      // Un ciclo cerrado no cambia: la diferencia se informa y se conserva lo congelado.
+      for (const ch of changes) report.conflicts.push({ id: ex.id, field: ch.field, kept: ch.from, incoming: ch.to, reason: 'pertenece a un ciclo cerrado; reábrelo para actualizarla' });
+      report.unchanged.push(ex.id);
+      continue;
+    }
     if (!changes.length) { report.unchanged.push(ex.id); continue; }
     for (const ch of changes) ex[ch.field] = ch.to;
     ex.raw = t.raw ?? ex.raw;

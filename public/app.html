@@ -785,6 +785,9 @@
     .sync-box, .conn-banner { background: var(--glass); border: 0; box-shadow: inset 0 0 0 1px var(--edge); border-radius: 16px }
     .quick-btns button { border-radius: 999px; background: var(--frost); box-shadow: inset 0 0 0 1px var(--edge) }
     .empty { color: var(--dim) }
+    .kline { display: flex; justify-content: space-between; gap: 10px; padding: 7px 12px; border-radius: 6px; background: rgba(199, 211, 234, 0.04); font-size: 12px; color: var(--muted) }
+    .kline b { font-family: var(--font-mono); font-weight: 400; color: var(--txt); white-space: nowrap }
+    .lock-tag { display: inline-flex; align-items: center; gap: 4px; color: var(--dim); font-size: 11px }
   </style>
 </head>
 
@@ -792,6 +795,10 @@
 
   <!-- ====== SVG SPRITE ====== -->
   <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </symbol>
     <symbol id="i-dash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <rect x="3" y="3" width="7" height="7" rx="1" />
       <rect x="14" y="3" width="7" height="7" rx="1" />
@@ -920,6 +927,7 @@
   <main class="main">
     <div id="pg-dashboard" class="pg on"></div>
     <div id="pg-trades" class="pg"></div>
+    <div id="pg-closings" class="pg"></div>
     <div id="pg-calculator" class="pg"></div>
     <div id="pg-api" class="pg"></div>
     <div id="pg-issues" class="pg"></div>
@@ -989,7 +997,8 @@
     const settings = Object.assign({ name: "", exchange: "Binance", crypto: "USDT", fiat: "PEN", autoSync: true, autoSyncMinutes: 5 }, (() => { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; } })());
     const saveSettings = () => { try { localStorage.setItem(ME ? `${SETTINGS_KEY}:${ME.id}` : SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { } };
     let autoSyncInterval = null, lastAutoSync = null;
-    const dash = { pair: "", from: "", to: "" };
+    const dash = { pair: "", from: "", to: "", scope: "actual" };
+    let closings = [];
 
     // ==================== API ====================
     async function api(path, opts = {}) {
@@ -1011,6 +1020,7 @@
       const items = [
         { id: "dashboard", l: "Dashboard", i: "dash" },
         { id: "trades", l: "Operaciones", i: "chart" },
+        { id: "closings", l: "Ciclos cerrados", i: "lock" },
         { id: "new", l: "Nueva Operación", i: "plus" },
         { id: "calculator", l: "Calculadora", i: "calc" },
         { id: "api", l: "APIs & Sync", i: "api" },
@@ -1030,7 +1040,7 @@
     function render() {
       document.querySelectorAll(".pg").forEach(p => p.classList.remove("on"));
       const el = $("pg-" + page); if (el) el.classList.add("on");
-      const fns = { dashboard: rDash, trades: rTrades, calculator: rCalc, api: rApi, issues: rIssues, settings: rSettings };
+      const fns = { dashboard: rDash, trades: rTrades, closings: rClosings, calculator: rCalc, api: rApi, issues: rIssues, settings: rSettings };
       Promise.resolve(fns[page] && fns[page]()).catch(e => toast(e.message, "err"));
     }
     async function loadTrades() {
@@ -1049,8 +1059,8 @@
     const chartOpts = () => ({ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#6b7488", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.03)" } }, y: { ticks: { color: "#6b7488", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.03)" } } } });
 
     async function rDash() {
-      const period = { from: dash.from, to: dash.to };
-      const [s, rep] = await Promise.all([api("/api/v1/stats" + qs({ ...period, pair: dash.pair })), api("/api/v1/report" + qs(period))]);
+      const period = { from: dash.from, to: dash.to, scope: dash.scope };
+      const [s, rep] = await Promise.all([api("/api/v1/stats" + qs({ ...period, pair: dash.pair })), api("/api/v1/report" + qs(period)), loadClosings()]);
       const pairs = s.byPair || [];
       const p = pairs.find(x => x.pair === s.pair);
       if (!dash.pair && p) dash.pair = p.pair;
@@ -1060,11 +1070,14 @@
       if (cn.length) h += `<div class="conn-banner mb">${ic("ok", 14)} <span class="bg" style="background:rgba(38, 150, 132, 0.18);color:var(--green)">APIs:</span>${cn.map(a => `<span class="bg" style="background:rgba(152, 192, 239, 0.18);color:var(--blue);font-weight:700">${esc(a.name)}</span>`).join("")}${settings.autoSync ? `<span class="tag" style="background:rgba(152, 192, 239, 0.08);color:var(--blue);margin-left:auto">${ic("refresh", 12)} Auto-sync cada ${settings.autoSyncMinutes} min</span>` : ''}</div>`;
 
       h += `<div class="fxb mb2" style="flex-wrap:wrap;gap:10px"><h2 class="h1">Dashboard</h2><div class="fx" style="flex-wrap:wrap">
+        ${closings.length ? `<select class="sel" style="width:auto" onchange="dash.scope=this.value;rDash()" title="Qué incluir"><option value="actual"${dash.scope === "actual" ? " selected" : ""}>Ciclo actual</option><option value="todo"${dash.scope === "todo" ? " selected" : ""}>Todo el historial</option></select>` : ""}
         <select class="sel" style="width:auto" onchange="dash.pair=this.value;rDash()" title="Mercado">${pairs.length ? pairs.map(x => `<option value="${esc(x.pair)}"${x.pair === s.pair ? " selected" : ""}>${esc(x.pair)}</option>`).join("") : "<option>Sin datos</option>"}</select>
         <input type="date" class="inp" style="width:auto" value="${dash.from}" onchange="dash.from=this.value;rDash()" title="Desde">
         <input type="date" class="inp" style="width:auto" value="${dash.to}" onchange="dash.to=this.value;rDash()" title="Hasta">
         ${[["7d", 7], ["30d", 30], ["Mes", "m"], ["Todo", 0]].map(([l, d]) => `<button class="btn btn-s" style="padding:6px 10px;font-size:11px" onclick="setDashRange('${d}')">${l}</button>`).join("")}
+        <button class="btn btn-s" style="padding:6px 12px;font-size:11px" onclick="openCloseCycle()" title="Congelar lo hecho hasta ahora y empezar un ciclo nuevo">${ic("lock", 12)} Cerrar ciclo</button>
       </div></div>`;
+      if (closings.length && dash.scope === "actual") h += `<div class="msg info">${ic("lock", 12)} Estás viendo el <b>ciclo actual</b>. Tienes ${closings.length} ciclo(s) cerrado(s) guardados en <a href="#" style="text-decoration:underline" onclick="event.preventDefault();go('closings')">Ciclos cerrados</a>.</div>`;
 
       if (s.issues && s.issues.error) h += `<div class="msg err">${ic("x", 12)} ${s.issues.error} operación(es) tienen errores y están excluidas de los cálculos. <a href="#" style="text-decoration:underline" onclick="event.preventDefault();go('issues')">Ver incidencias</a></div>`;
       if (s.excluded) h += `<div class="msg warn">${s.excluded} operación(es) no se contabilizan (pendientes, canceladas o con error). Solo cuentan las completadas.</div>`;
@@ -1154,7 +1167,7 @@
         const errs = (t.issues || []).filter(i => i.severity === "error").length;
         const src = SRC[t.source] || SRC.manual;
         return `<tr>
-          <td style="font-size:12px;color:var(--muted);white-space:nowrap">${fd(t.dateUtc)}</td>
+          <td style="font-size:12px;color:var(--muted);white-space:nowrap">${t.closingId ? `<span class="lock-tag" title="En un ciclo cerrado: no se puede editar">${ic("lock", 11)}</span> ` : ""}${fd(t.dateUtc)}</td>
           <td><span class="bg" style="background:${t.type === "compra" ? "rgba(152, 192, 239, 0.18);color:var(--blue)" : "rgba(38, 150, 132, 0.18);color:var(--green)"}">${t.type === "compra" ? "⬇ compra" : "⬆ venta"}</span></td>
           <td class="mono" style="font-size:11px;color:var(--muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.orderId)}">${esc(t.orderId || "—")}</td>
           <td style="font-weight:600">${esc(t.exchange)}</td>
@@ -1168,7 +1181,9 @@
           <td><span class="bg" style="background:${st[1]}20;color:${st[1]}">${st[0]}</span></td>
           <td>${t.countable ? `<span style="color:var(--green)" title="Se contabiliza">${ic("ok", 14)}</span>` : `<span style="color:${errs ? "var(--red)" : "var(--dim)"};cursor:help" title="${esc(t.excludedReason || "")}">${errs ? "⚠" : "—"}</span>`}</td>
           <td><span class="bg" style="background:${src[1]};font-size:10px">${src[0]}</span></td>
-          <td><div class="fx" style="justify-content:flex-end;gap:2px"><button class="btn-g" title="Detalle y trazabilidad" onclick="openTrace('${esc(t.id)}')">${ic("info", 14)}</button><button class="btn-g" title="Editar" onclick="openForm('${esc(t.id)}')">${ic("edit", 14)}</button><button class="btn-g" title="Eliminar" style="color:var(--red)" onclick="delTrade('${esc(t.id)}')">${ic("trash", 14)}</button></div></td>
+          <td><div class="fx" style="justify-content:flex-end;gap:2px"><button class="btn-g" title="Detalle y trazabilidad" onclick="openTrace('${esc(t.id)}')">${ic("info", 14)}</button>${t.closingId
+            ? `<span class="lock-tag" title="Pertenece a un ciclo cerrado. Reábrelo para editarla.">${ic("lock", 14)}</span>`
+            : `<button class="btn-g" title="Editar" onclick="openForm('${esc(t.id)}')">${ic("edit", 14)}</button><button class="btn-g" title="Eliminar" style="color:var(--red)" onclick="delTrade('${esc(t.id)}')">${ic("trash", 14)}</button>`}</div></td>
         </tr>`;
       }).join("") : `<tr><td colspan="15" class="empty">Sin resultados</td></tr>`;
     }
@@ -1214,6 +1229,107 @@
     }
 
     // ==================== EXPORTAR ====================
+    // ==================== CICLOS CERRADOS ====================
+    async function loadClosings() { try { closings = (await api("/api/v1/closings")).closings || []; } catch (e) { closings = []; } }
+    async function rClosings() {
+      await loadClosings();
+      let h = `<div class="fxb mb2" style="flex-wrap:wrap;gap:10px"><div><h2 class="h1">Ciclos cerrados</h2><p style="color:var(--dim);margin-top:6px;font-size:13px;max-width:620px">Un ciclo cerrado queda congelado: sus operaciones no se pueden editar y su resultado no cambia. Lo que registres después va al ciclo actual.</p></div><button class="btn btn-p" onclick="openCloseCycle()">${ic("lock", 14)} Cerrar ciclo</button></div>`;
+      if (!closings.length) h += `<div class="card empty">Aún no has cerrado ningún ciclo.<br><br>Cuando termines una ronda de arbitraje, ciérrala aquí. Queda guardada con su resultado y sus reportes, y el ciclo actual empieza limpio.</div>`;
+      else h += closings.map(closingCard).join("");
+      $("pg-closings").innerHTML = h;
+    }
+    function closingCard(k) {
+      const s = k.summary, [cr, fi] = k.pair.split("/"), net = Number(s.net);
+      const line = (l, v, c) => `<div class="kline"><span>${l}</span><b${c ? ` style="color:${c}"` : ""}>${v}</b></div>`;
+      const inv = Number(k.carriedQty) > 0
+        ? `${fq(k.carriedQty)} ${esc(cr)} · ${fc(s.closingInventory.cost, fi)}`
+        : (Number(s.closingInventory.qty) > 0 ? `${fq(s.closingInventory.qty)} ${esc(cr)} (se quedó en este ciclo)` : "Ninguno");
+      return `<div class="card mb">
+        <div class="fxb" style="flex-wrap:wrap;gap:12px;margin-bottom:14px">
+          <div><div class="h2" style="margin:0">${ic("lock", 14)} ${esc(k.name)}</div>
+            <div style="color:var(--dim);font-size:12px;margin-top:6px">${esc(k.pair)} · ${k.firstUtc ? fd(k.firstUtc) : "—"} → ${fd(k.cutoffUtc)} · ${k.tradeCount} operaciones${k.costCount ? ` · ${k.costCount} costos` : ""}</div></div>
+          <div style="text-align:right"><div class="lb" style="margin:0">Ganancia neta</div><div class="mono" style="font-size:24px;color:${net >= 0 ? "#3daa94" : "#e46d4c"}">${fc(net, fi)}</div></div>
+        </div>
+        <div class="g2" style="gap:6px">
+          ${line("Ventas", `${fc(s.sells.fiat, fi)} · ${s.sells.count} ops`, "#3daa94")}
+          ${line("Compras", `${fc(s.buys.fiat, fi)} · ${s.buys.count} ops`, "#98c0ef")}
+          ${line("Costo de lo vendido (FIFO)", fc(s.costOfSales, fi))}
+          ${line("Ganancia bruta", fc(s.gross, fi))}
+          ${line("(−) Comisiones", fc(s.fees, fi), Number(s.fees) > 0 ? "#e46d4c" : "")}
+          ${line("(−) Otros costos", fc(s.otherCosts, fi), Number(s.otherCosts) > 0 ? "#e46d4c" : "")}
+          ${line(k.carry ? "Inventario que pasó al ciclo siguiente" : "Inventario sin vender", inv, "#e0b26a")}
+          ${Number(s.unrecognizedProceeds) > 0 ? line("Ventas sin compra registrada (no cuentan)", fc(s.unrecognizedProceeds, fi), "#e46d4c") : line("Ciclos de compra-venta", s.cycles)}
+        </div>
+        ${k.notes ? `<div style="font-size:12px;color:var(--muted);margin-top:10px">${esc(k.notes)}</div>` : ""}
+        ${k.intact ? "" : `<div class="msg warn mt">Al recalcular con los datos congelados el resultado no coincide con el guardado. El valor guardado es el que vale; avísanos para revisarlo.</div>`}
+        <div class="fx mt" style="flex-wrap:wrap;gap:8px">
+          <button class="btn btn-s" onclick="exportClosing('${esc(k.id)}','excel')">📊 Excel</button>
+          <button class="btn btn-s" onclick="exportClosing('${esc(k.id)}','pdf')">🧾 Reporte PDF</button>
+          ${k.canReopen ? `<button class="btn btn-s" style="margin-left:auto;color:var(--red)" onclick="reopenClosing('${esc(k.id)}')">Reabrir ciclo</button>` : `<span style="margin-left:auto;font-size:11px;color:var(--dim)">Para reabrirlo, reabre antes los ciclos posteriores de ${esc(k.pair)}.</span>`}
+        </div>
+      </div>`;
+    }
+    function exportClosing(id, kind) {
+      window.location.href = `/api/v1/export/${kind}` + qs({ scope: id, userName: settings.name });
+      toast(kind === "pdf" ? "Generando reporte PDF…" : "Generando Excel…");
+    }
+    async function reopenClosing(id) {
+      const k = closings.find(x => x.id === id);
+      if (!confirm(`¿Reabrir "${k?.name || id}"?\n\nSus operaciones vuelven al ciclo actual tal como estaban y se pueden editar otra vez. Puedes volver a cerrarlo cuando quieras.`)) return;
+      try { const r = await api("/api/v1/closings/" + encodeURIComponent(id), { method: "DELETE" }); toast(`Ciclo reabierto: ${r.reopened} operaciones vuelven al ciclo actual`); trades = []; refreshIssueCount(); rClosings(); }
+      catch (e) { toast(e.message, "err"); }
+    }
+    async function openCloseCycle() {
+      if (!trades.length) { try { await loadTrades(); } catch (e) { } }
+      const pairs = [...new Set(trades.filter(t => !t.closingId).map(t => t.pair))].sort();
+      const def = pairs.includes(dash.pair) ? dash.pair : pairs[0];
+      $("ml").className = "ml";
+      $("ml").innerHTML = `
+        <div class="fxb" style="margin-bottom:6px"><h3 style="font-size:18px;font-weight:500">${ic("lock", 16)} Cerrar ciclo</h3><button class="btn-g" onclick="closeForm()">${ic("x", 16)}</button></div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">Todo lo del mercado hasta la fecha de corte queda guardado como un ciclo cerrado, con su resultado congelado. El USDT que no hayas vendido pasa al ciclo nuevo a su costo.</p>
+        ${pairs.length ? `<div class="g2" style="gap:12px;margin-bottom:12px">
+          <div><div class="lb">Mercado</div><select class="sel" id="cc-pair" onchange="previewClose()">${pairs.map(p => `<option${p === def ? " selected" : ""}>${esc(p)}</option>`).join("")}</select></div>
+          <div><div class="lb">Fecha de corte (hora de Lima)</div><input type="datetime-local" class="inp" id="cc-cut" value="${limaInput()}" onchange="previewClose()"></div>
+        </div>
+        <div style="margin-bottom:12px"><div class="lb">Nombre (opcional)</div><input class="inp" id="cc-name" maxlength="80" placeholder="p. ej. Octubre 2026"></div>
+        <div style="margin-bottom:16px"><div class="lb">Notas (opcional)</div><input class="inp" id="cc-notes" maxlength="500" placeholder="Algo que quieras recordar de este ciclo"></div>
+        <div id="cc-prev" style="margin-bottom:16px"></div>
+        <div class="fx" style="justify-content:flex-end;gap:8px"><button class="btn btn-s" onclick="closeForm()">Cancelar</button><button class="btn btn-p" id="cc-go" onclick="confirmClose()" disabled>${ic("lock", 14)} Cerrar ciclo</button></div>`
+        : `<div class="card empty">No hay operaciones abiertas para cerrar.</div>`}`;
+      $("ov").classList.add("open");
+      if (pairs.length) previewClose();
+    }
+    async function previewClose() {
+      const el = $("cc-prev"), btn = $("cc-go");
+      if (!el) return;
+      btn.disabled = true;
+      el.innerHTML = `<div class="msg info">Calculando…</div>`;
+      try {
+        const p = await api("/api/v1/closings/preview" + qs({ pair: $("cc-pair").value, cutoff: $("cc-cut").value }));
+        const s = p.summary, [cr, fi] = p.pair.split("/"), net = Number(s.net);
+        const line = (l, v, c) => `<div class="kline"><span>${l}</span><b${c ? ` style="color:${c}"` : ""}>${v}</b></div>`;
+        el.innerHTML = `<div class="card" style="padding:14px">
+          <div class="fxb" style="margin-bottom:10px"><span style="font-size:13px;color:var(--muted)">Se guardará como <b style="color:var(--txt)">ciclo #${p.seq}</b> de ${esc(p.pair)}</span><span class="mono" style="font-size:18px;color:${net >= 0 ? "#3daa94" : "#e46d4c"}">${fc(net, fi)}</span></div>
+          <div style="display:grid;gap:6px">
+            ${line("Operaciones que se congelan", `${p.trades}${p.costs ? ` + ${p.costs} costos` : ""}`)}
+            ${line("Desde → corte", `${p.firstUtc ? fd(p.firstUtc) : "—"} → ${fd(p.cutoffUtc)}`)}
+            ${line("Ganancia bruta / comisiones", `${fc(s.gross, fi)} / ${fc(s.fees, fi)}`)}
+            ${line("Pasa al ciclo nuevo a su costo", Number(p.carriedQty) > 0 ? `${fq(p.carriedQty)} ${esc(cr)} · ${fc(s.closingInventory.cost, fi)}` : "Nada", "#e0b26a")}
+          </div></div>
+          ${p.pending ? `<div class="msg warn mt">${p.pending} operación(es) pendientes o en disputa antes del corte no se congelan: se quedan en el ciclo actual hasta que se completen.</div>` : ""}
+          ${s.issues.error ? `<div class="msg err mt">${s.issues.error} incidencia(s) con error en este ciclo: esas operaciones no se contabilizan y quedarán así al cerrarlo. Revísalas antes en Incidencias.</div>` : ""}`;
+        btn.disabled = false;
+      } catch (e) { el.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+    }
+    async function confirmClose() {
+      const btn = $("cc-go"); btn.disabled = true;
+      try {
+        const r = await api("/api/v1/closings", { method: "POST", body: { pair: $("cc-pair").value, cutoff: $("cc-cut").value, name: $("cc-name").value, notes: $("cc-notes").value } });
+        toast(`${r.closing.name} cerrado y guardado`);
+        closeForm(); trades = []; dash.scope = "actual"; refreshIssueCount(); go("closings");
+      } catch (e) { toast(e.message, "err"); btn.disabled = false; }
+    }
+
     function openExport() {
       $("ml").className = "ml";
       $("ml").innerHTML = `
@@ -1238,6 +1354,7 @@
           <button class="btn btn-s btn-full" onclick="doExportPdf()">🧾 Reporte PDF</button>
           <button class="btn btn-s btn-full" onclick="doExportCSV()">📄 CSV</button>
         </div>
+        ${closings.length ? `<div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.6">${ic("lock", 11)} Incluye también las operaciones de los ciclos cerrados del período. Cada ciclo cerrado tiene además su propio reporte en <b>Ciclos cerrados</b>.</div>` : ""}
         <div style="font-size:11px;color:var(--dim);margin-top:12px;line-height:1.6"><b>Para tu contador:</b> envía el <b>Reporte PDF</b> (resumen de resultados por mercado, por mes y por exchange, con controles y notas) junto con el <b>Excel contable</b> del mismo período, que tiene el detalle: operaciones, ciclos, trazabilidad FIFO, comisiones, excluidas e incidencias.</div>`;
       updateExportPreview();
       $("ov").classList.add("open");
@@ -1775,7 +1892,7 @@
         $("pg-dashboard").innerHTML = `<div class="card empty"><div class="msg err">No se pudo conectar con el servidor. Recarga la página en unos segundos.</div></div>`;
         return;
       }
-      await Promise.all([loadTrades().catch(e => toast(e.message, "err")), loadConnected()]);
+      await Promise.all([loadTrades().catch(e => toast(e.message, "err")), loadConnected(), loadClosings()]);
       nav(); render(); refreshIssueCount();
       startAutoSync();
       if (!window.Chart) log("No se cargó Chart.js (sin internet): los gráficos no se mostrarán.", "err");

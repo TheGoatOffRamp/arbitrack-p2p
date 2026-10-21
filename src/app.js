@@ -11,7 +11,7 @@ const { createAuth } = require('./auth');
 const { createMailer } = require('./mailer');
 const { mergeTrades, audit } = require('./ledger');
 const { buildTrade, validateTrade, isCountable, present, canonicalExchange, slug, EDITABLE_FIELDS, STATUS, dedupKey } = require('./model');
-const { rangeBoundary, DEFAULT_TZ, assertTz, toLocalMinute } = require('./dates');
+const { rangeBoundary, DEFAULT_TZ, assertTz, toLocalMinute, parseSourceDate } = require('./dates');
 const { D } = require('./money');
 const { parseCsv, parseXlsx } = require('./importers/tabular');
 const { analyze } = require('./importers/importer');
@@ -19,8 +19,9 @@ const { ADAPTERS, UNSUPPORTED } = require('./exchanges/adapters');
 const { compute, toJSONSafe } = require('./accounting/engine');
 const { buildWorkbook } = require('./accounting/excel');
 const { buildPdf } = require('./accounting/pdf');
+const { planClosing, verifyClosing, canReopen } = require('./accounting/closings');
 
-const VERSION = '2.3.0';
+const VERSION = '2.4.0';
 
 class HttpError extends Error { constructor(status, message, extra) { super(message); this.status = status; this.extra = extra; } }
 const bad = (msg, extra) => new HttpError(400, msg, extra);
@@ -137,8 +138,26 @@ function createApp(opts = {}) {
       return { fromMs: rangeBoundary(q.from, 'start', tz) ?? undefined, toMs: rangeBoundary(q.to, 'end', tz) ?? undefined };
     } catch (e) { throw bad(e.message); }
   };
-  const report = (q = {}) => compute(store.read(), { ...period(q), tz });
+  // Alcance: 'todo' (historial completo, por defecto), 'actual' (lo no cerrado) o el id de un ciclo cerrado.
+  const scopeOf = (q, s = store.read()) => {
+    const sc = q.scope || 'todo';
+    if (sc !== 'todo' && sc !== 'actual' && !(s.closings || []).some((k) => k.id === sc)) throw bad(`Alcance desconocido: ${sc}`);
+    return sc;
+  };
+  const report = (q = {}) => {
+    const s = store.read();
+    const scope = scopeOf(q, s);
+    // Un ciclo cerrado se calcula completo: el período no aplica.
+    return compute(s, { ...(scope === 'todo' || scope === 'actual' ? period(q) : {}), tz, scope });
+  };
   const findTrade = (s, id) => s.trades.find((t) => t.id === id);
+  const manualClosed = (s, cycleId) => s.trades.some((t) => t.cycleId === cycleId && t.closingId);
+  const closingOf = (s, id) => (s.closings || []).find((k) => k.id === id);
+  const locked = (s, rec, what = 'La operación') => {
+    if (!rec?.closingId) return;
+    const k = closingOf(s, rec.closingId);
+    throw new HttpError(409, `${what} pertenece al ciclo cerrado ${k ? `#${k.seq} de ${k.pair}` : rec.closingId}. Reábrelo para modificarla.`);
+  };
 
   // ── salud ──
   app.get('/health', (req, res) => {
@@ -288,6 +307,7 @@ function createApp(opts = {}) {
   const updateTrade = async (id, body) => store.mutate((s) => {
     const t = findTrade(s, id);
     if (!t) throw new HttpError(404, 'Operación no encontrada');
+    locked(s, t);
     const changes = Object.fromEntries(Object.entries(body || {}).filter(([k]) => EDITABLE_FIELDS.includes(k) || ['feeType', 'feePercent'].includes(k)));
     if (changes.cycleId) {
       const c = s.cycles.find((x) => x.id === changes.cycleId);
@@ -337,6 +357,7 @@ function createApp(opts = {}) {
       const t = findTrade(s, req.params.id);
       if (!t) throw new HttpError(404, 'Operación no encontrada');
       if (t.deleted) return;
+      locked(s, t);
       t.deleted = true; t.updatedAt = new Date().toISOString();
       t.history.push({ at: t.updatedAt, by: 'usuario', changes: [{ field: 'deleted', from: false, to: true }], reason: (req.body || {}).reason || null });
       audit(s, { action: 'delete', tradeId: t.id });
@@ -430,7 +451,7 @@ function createApp(opts = {}) {
       let count = 0;
       const now = new Date().toISOString();
       for (const t of s.trades) {
-        if (!t.deleted && t.batchIds?.length === 1 && t.batchIds[0] === b.id) {
+        if (!t.deleted && !t.closingId && t.batchIds?.length === 1 && t.batchIds[0] === b.id) {
           t.deleted = true; t.updatedAt = now; t.history.push({ at: now, by: 'usuario', changes: [{ field: 'deleted', from: false, to: true }], reason: `deshacer lote ${b.id}` });
           count++;
         }
@@ -461,10 +482,12 @@ function createApp(opts = {}) {
     res.json({ success: true, cycle: c });
   }));
   const assignTrades = (s, cycle, ids) => {
+    if (manualClosed(s, cycle.id)) throw new HttpError(409, `El ciclo "${cycle.name}" ya está dentro de un ciclo cerrado; no admite operaciones nuevas.`);
     const errors = [];
     for (const id of ids) {
       const t = findTrade(s, id);
       if (!t || t.deleted) { errors.push(`${id}: no existe`); continue; }
+      if (t.closingId) { errors.push(`${id}: pertenece a un ciclo cerrado`); continue; }
       if (t.pair !== cycle.pair) { errors.push(`${id}: es ${t.pair}, el ciclo es ${cycle.pair}`); continue; }
       if (t.cycleId && t.cycleId !== cycle.id) { errors.push(`${id}: ya pertenece al ciclo ${t.cycleId}`); continue; }
     }
@@ -489,6 +512,7 @@ function createApp(opts = {}) {
     await store.mutate((s) => {
       const t = findTrade(s, req.params.tradeId);
       if (!t || t.cycleId !== req.params.id) throw new HttpError(404, 'La operación no está en ese ciclo');
+      locked(s, t);
       t.history.push({ at: new Date().toISOString(), by: 'usuario', changes: [{ field: 'cycleId', from: t.cycleId, to: null }] });
       t.cycleId = null;
     });
@@ -498,6 +522,7 @@ function createApp(opts = {}) {
     await store.mutate((s) => {
       const i = s.cycles.findIndex((x) => x.id === req.params.id);
       if (i < 0) throw new HttpError(404, 'Ciclo no encontrado');
+      for (const t of s.trades) if (t.cycleId === req.params.id) locked(s, t, 'Una operación de este ciclo manual');
       for (const t of s.trades) if (t.cycleId === req.params.id) { t.history.push({ at: new Date().toISOString(), by: 'usuario', changes: [{ field: 'cycleId', from: t.cycleId, to: null }] }); t.cycleId = null; }
       for (const c of s.costs) if (c.cycleId === req.params.id) c.cycleId = null;
       s.cycles.splice(i, 1);
@@ -516,7 +541,6 @@ function createApp(opts = {}) {
     if (a !== cr && a !== fi) throw bad(`La moneda del costo (${a || 'vacía'}) debe ser ${cr} o ${fi}`);
     if (!(D(amount || 0).gt(0))) throw bad('El monto del costo debe ser mayor que 0');
     if (!description) throw bad('Describa el costo (p. ej. "comisión de red TRC20")');
-    const { parseSourceDate } = require('./dates');
     const pd = dateUtc ? parseSourceDate(dateUtc, { tz: 'UTC' }) : parseSourceDate(date, { tz });
     if (!pd.ok) throw bad(`Fecha: ${pd.error}`);
     const cost = await store.mutate((s) => {
@@ -524,6 +548,7 @@ function createApp(opts = {}) {
         const c = s.cycles.find((x) => x.id === cycleId);
         if (!c) throw bad(`El ciclo ${cycleId} no existe`);
         if (c.pair !== p) throw bad(`El costo es de ${p} y el ciclo es ${c.pair}`);
+        if (manualClosed(s, cycleId)) throw new HttpError(409, `El ciclo "${c.name}" ya está dentro de un ciclo cerrado; no admite costos nuevos.`);
       }
       const rec = { id: `cost_${Date.now().toString(36)}`, dateUtc: new Date(pd.ms).toISOString(), date: toLocalMinute(pd.ms, tz), pair: p, asset: a,
         amount: D(amount).toFixed(), description: String(description), exchange: exchange ? canonicalExchange(exchange) : null, cycleId: cycleId || null, createdAt: new Date().toISOString() };
@@ -536,9 +561,75 @@ function createApp(opts = {}) {
     await store.mutate((s) => {
       const c = s.costs.find((x) => x.id === req.params.id);
       if (!c) throw new HttpError(404, 'Costo no encontrado');
+      locked(s, c, 'El costo');
       c.deleted = true;
     });
     res.json({ success: true });
+  }));
+
+  // ── ciclos cerrados ──
+  const presentClosing = (s, k) => ({ ...k, carryLots: undefined, carriedQty: (k.carryLots || []).reduce((a, l) => a.plus(l.qty), D(0)).toFixed(),
+    intact: verifyClosing(s, k, tz), canReopen: canReopen(s, k) });
+  const parseCutoff = (v) => {
+    if (!v) return new Date().toISOString();
+    const pd = parseSourceDate(v, { tz });
+    if (!pd.ok) throw bad(`Fecha de corte: ${pd.error}`);
+    return new Date(pd.ms).toISOString();
+  };
+  const closingInput = (b) => {
+    const pair = String(b.pair || '').toUpperCase();
+    if (!/^[A-Z0-9]+\/[A-Z0-9]+$/.test(pair)) throw bad('Indica el par a cerrar, p. ej. USDT/PEN');
+    return { pair, cutoffUtc: parseCutoff(b.cutoff), carry: b.carry !== false && b.carry !== 'false' };
+  };
+  const plan = (s, input) => { try { return planClosing(s, { ...input, tz }); } catch (e) { throw bad(e.message); } };
+
+  app.get('/api/v1/closings', (req, res) => {
+    const s = store.read();
+    res.json({ closings: [...(s.closings || [])].sort((a, b) => b.cutoffUtc.localeCompare(a.cutoffUtc)).map((k) => presentClosing(s, k)) });
+  });
+  // Vista previa: qué quedaría congelado, sin guardar nada.
+  app.get('/api/v1/closings/preview', (req, res) => {
+    const input = closingInput(req.query);
+    const r = plan(store.read(), input);
+    res.json({ pair: input.pair, cutoffUtc: input.cutoffUtc, cutoffLocal: toLocalMinute(Date.parse(input.cutoffUtc), tz).replace('T', ' '), seq: r.seq,
+      trades: r.tradeIds.length, costs: r.costIds.length, pending: r.pending, firstUtc: r.firstUtc, summary: r.summary,
+      carriedQty: r.carryLots.reduce((a, l) => a.plus(l.qty), D(0)).toFixed() });
+  });
+  app.post('/api/v1/closings', wrap(async (req, res) => {
+    const b = req.body || {};
+    const input = closingInput(b);
+    const k = await store.mutate((s) => {
+      const r = plan(s, input);
+      const now = new Date().toISOString();
+      const rec = { id: r.id, seq: r.seq, pair: input.pair, name: String(b.name || '').trim().slice(0, 80) || `${input.pair} · Ciclo #${r.seq}`,
+        notes: b.notes ? String(b.notes).slice(0, 500) : null, cutoffUtc: input.cutoffUtc, cutoffLocal: toLocalMinute(Date.parse(input.cutoffUtc), tz).replace('T', ' '),
+        firstUtc: r.firstUtc, createdAt: now, carry: input.carry, tradeCount: r.tradeIds.length, costCount: r.costIds.length,
+        summary: r.summary, carryLots: r.carryLots };
+      const ids = new Set(r.tradeIds), cids = new Set(r.costIds);
+      for (const t of s.trades) if (ids.has(t.id)) { t.closingId = rec.id; t.history.push({ at: now, by: 'usuario', changes: [{ field: 'closingId', from: null, to: rec.id }] }); }
+      for (const c of s.costs) if (cids.has(c.id)) c.closingId = rec.id;
+      s.closings = [...(s.closings || []), rec];
+      audit(s, { action: 'close-cycle', closingId: rec.id, pair: rec.pair, cutoffUtc: rec.cutoffUtc, trades: rec.tradeCount, net: rec.summary.net });
+      return rec;
+    });
+    log('CLOSE', `${k.pair} #${k.seq} hasta ${k.cutoffUtc}: ${k.tradeCount} operaciones`);
+    res.status(201).json({ success: true, closing: presentClosing(store.read(), k) });
+  }));
+  // Reabrir: las operaciones vuelven al ciclo actual tal como estaban. Solo el último cierre de cada par.
+  app.delete('/api/v1/closings/:id', wrap(async (req, res) => {
+    const n = await store.mutate((s) => {
+      const k = closingOf(s, req.params.id);
+      if (!k) throw new HttpError(404, 'Ciclo cerrado no encontrado');
+      if (!canReopen(s, k)) throw new HttpError(409, `Primero reabre los ciclos posteriores de ${k.pair}; este es el #${k.seq}.`);
+      const now = new Date().toISOString();
+      let count = 0;
+      for (const t of s.trades) if (t.closingId === k.id) { t.closingId = null; t.history.push({ at: now, by: 'usuario', changes: [{ field: 'closingId', from: k.id, to: null }] }); count++; }
+      for (const c of s.costs) if (c.closingId === k.id) c.closingId = null;
+      s.closings = s.closings.filter((x) => x.id !== k.id);
+      audit(s, { action: 'reopen-cycle', closingId: k.id, pair: k.pair, trades: count });
+      return count;
+    });
+    res.json({ success: true, reopened: n });
   }));
 
   // ── reportes ──
@@ -556,7 +647,6 @@ function createApp(opts = {}) {
   // Estadísticas: por par. Los campos heredados (profit, volBuy…) corresponden a UN par, nunca a una mezcla de monedas.
   app.get('/api/v1/stats', (req, res) => {
     const rep = report(req.query);
-    const s = store.read();
     const byPair = rep.pairs.map((p) => ({
       pair: p.pair, crypto: p.crypto, fiat: p.fiat, buys: p.buys.count, sells: p.sells.count,
       volBuy: p.buys.fiat, volSell: p.sells.fiat, qtyBuy: p.buys.qty, qtySell: p.sells.qty,
@@ -573,16 +663,33 @@ function createApp(opts = {}) {
       totalTrades: counted, buys: main?.buys || 0, sells: main?.sells || 0,
       profit: num(main?.netProfit), grossProfit: num(main?.grossProfit), volBuy: num(main?.volBuy), volSell: num(main?.volSell),
       volume: num(D(main?.volBuy || 0).plus(main?.volSell || 0)), fees: num(main?.fees), roi: num(main?.roi),
-      byPair, excluded: s.trades.filter((t) => !t.deleted).length - counted,
+      byPair, excluded: rep.tradeInfo.size - counted,
       issues: { error: rep.issues.filter((i) => i.severity === 'error').length, warning: rep.issues.filter((i) => i.severity === 'warning').length },
     }));
   });
 
+  // Etiquetas del archivo según el alcance (un ciclo cerrado lleva su propio rango y nombre).
+  const exportCtx = (q) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const k = closingOf(store.read(), q.scope);
+    if (k) {
+      return { fromLabel: k.firstUtc ? toLocalMinute(Date.parse(k.firstUtc), tz).slice(0, 10) : null, toLabel: k.cutoffLocal,
+        scopeLabel: `${k.name} (cerrado, hasta ${k.cutoffLocal})`, fileTag: `${k.pair.replace('/', '-')}_ciclo-${k.seq}` };
+    }
+    const scopeLabel = q.scope === 'actual' ? 'Solo el ciclo actual (sin ciclos cerrados)' : null;
+    return { fromLabel: q.from, toLabel: q.to, scopeLabel,
+      fileTag: `${q.scope === 'actual' ? 'ciclo-actual_' : ''}${String(q.from || 'inicio').slice(0, 10)}_${String(q.to || today).slice(0, 10)}` };
+  };
+  const scopedTrades = (q) => {
+    const sc = q.scope || 'todo';
+    return store.read().trades.filter((t) => sc === 'todo' || (sc === 'actual' ? !t.closingId : t.closingId === sc));
+  };
   const exportExcel = wrap(async (req, res) => {
     const q = { ...req.query, ...(req.body || {}) };
     const rep = report(q);
-    const wb = await buildWorkbook(rep, { trades: store.read().trades, userName: q.userName, fromLabel: q.from, toLabel: q.to });
-    const fname = `ArbiTrack_${String(q.from || 'inicio').slice(0, 10)}_${String(q.to || new Date().toISOString()).slice(0, 10)}.xlsx`;
+    const x = exportCtx(q);
+    const wb = await buildWorkbook(rep, { trades: scopedTrades(q), userName: q.userName, ...x });
+    const fname = `ArbiTrack_${x.fileTag}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
     const buf = await wb.xlsx.writeBuffer();
@@ -595,8 +702,9 @@ function createApp(opts = {}) {
   const exportPdf = wrap(async (req, res) => {
     const q = { ...req.query, ...(req.body || {}) };
     const rep = report(q);
-    const buf = await buildPdf(rep, { trades: store.read().trades, userName: q.userName || req.user?.name, userEmail: req.user?.email, fromLabel: q.from, toLabel: q.to });
-    const fname = `ArbiTrack_Reporte_${String(q.from || 'inicio').slice(0, 10)}_${String(q.to || new Date().toISOString()).slice(0, 10)}.pdf`;
+    const x = exportCtx(q);
+    const buf = await buildPdf(rep, { trades: scopedTrades(q), userName: q.userName || req.user?.name, userEmail: req.user?.email, ...x });
+    const fname = `ArbiTrack_Reporte_${x.fileTag}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
     res.end(buf);

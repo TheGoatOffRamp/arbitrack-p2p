@@ -1,11 +1,11 @@
-# ArbiTrack P2P — v2.3 (multiusuario)
+# ArbiTrack P2P — v2.4 (multiusuario, ciclos cerrados)
 
 Registro, seguimiento y control contable de operaciones de arbitraje P2P entre exchanges y monedas.
 
 ```bash
 npm install
 npm start          # http://localhost:3001  (solo esta computadora)
-npm test           # 56 pruebas (+10 del modo multiusuario con TEST_DATABASE_URL)
+npm test           # 69 pruebas (+10 del modo multiusuario con TEST_DATABASE_URL)
 npm run ejemplo    # genera examples/ArbiTrack_ejemplo.xlsx con datos ficticios
 ```
 
@@ -182,8 +182,9 @@ Perfiles incluidos: Binance, Bybit, Bitget, OKX, El Dorado y uno genérico. El g
 | GET · DELETE | `/api/v1/import/batches` · `/api/v1/import/batches/:id` | Lotes; deshacer un lote |
 | GET / POST / DELETE | `/api/v1/cycles` · `/api/v1/cycles/:id/trades` | Ciclos manuales |
 | GET / POST / DELETE | `/api/v1/costs` | Otros costos |
+| GET · GET · POST · DELETE | `/api/v1/closings` · `/api/v1/closings/preview` · `/api/v1/closings/:id` | Ciclos cerrados: listar, vista previa, cerrar (`pair`, `cutoff`, `name`) y reabrir (§5.1) |
 | GET | `/api/v1/stats` | Estadísticas por par (`byPair`); campos heredados = un solo par |
-| GET | `/api/v1/report` | Resultado completo (pares, ciclos, FIFO, comisiones, incidencias) |
+| GET | `/api/v1/report` | Resultado completo (pares, ciclos, FIFO, comisiones, incidencias). `scope=todo` (por defecto), `actual` o el id de un ciclo cerrado; también en `stats`, `issues` y las exportaciones |
 | GET | `/api/v1/issues` | Incidencias (`severity=error|warning|info`) |
 | GET / POST | `/api/v1/export/excel` | Excel contable (`from`, `to`, `userName`) |
 | GET / POST | `/api/v1/export/pdf` | Reporte PDF para el contador (`from`, `to`, `userName`) |
@@ -199,6 +200,20 @@ En la app: **Operaciones → Exportar**, elegir el período (atajos: este mes, m
 - **CSV** de operaciones.
 
 Lo recomendado es enviar al contador el PDF y el Excel del mismo período. Ejemplos: `npm run ejemplo` → `examples/ArbiTrack_ejemplo.pdf` y `.xlsx`.
+
+### 5.1 Ciclos cerrados
+
+**Ciclos cerrados → Cerrar ciclo**: se elige el mercado y una fecha de corte. Todo lo de ese par anterior al corte queda
+congelado como "ciclo #N": sus operaciones y costos ya no se pueden editar, borrar ni cambiar por una sincronización, y su
+resultado (ventas, costo FIFO, comisiones, neta, inventario) queda guardado. Cada ciclo cerrado tiene su propio PDF y Excel.
+
+- El inventario sin vender pasa al ciclo siguiente **a su costo**, como lotes iniciales. Así el FIFO no se corta:
+  ciclos cerrados + ciclo actual = historial completo, y el reporte del contador por período (`scope=todo`) no cambia.
+- Las operaciones pendientes o en disputa no se congelan; se quedan en el ciclo actual.
+- Una operación que llega después con fecha anterior al corte se cuenta en el ciclo actual con el aviso `ANTERIOR_AL_CIERRE`.
+- Un ciclo manual no puede quedar partido por el corte.
+- **Reabrir** devuelve las operaciones al ciclo actual tal como estaban; solo se puede reabrir el último cierre de cada par.
+- Al listar, cada cierre se recalcula con sus datos congelados y se marca si el resultado no coincide con el guardado.
 
 ### Excel contable
 

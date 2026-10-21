@@ -10,6 +10,8 @@
 //   Ganancia neta         = bruta − comisiones − otros costos
 // Un "ciclo" automático = una venta + los lotes de compra que consume (puede cruzar exchanges).
 // Un ciclo manual       = grupo de operaciones definido por el usuario, calculado con su propio inventario.
+// Un ciclo cerrado      = todo lo de un par hasta una fecha de corte, congelado (closingId). El inventario que
+//                         sobra pasa al ciclo siguiente a su costo, así que el FIFO continúa sin saltos.
 const { D, ZERO, str } = require('../money');
 const { validateTrade, isCountable, STATUS } = require('../model');
 const { zonedParts } = require('../dates');
@@ -57,11 +59,31 @@ class Pool {
 const Decimal_min = (a, b) => (a.lt(b) ? a : b);
 
 const sumA = (arr, k) => arr.reduce((a, x) => a.plus(x[k]), ZERO);
+/** ¿El registro pertenece al alcance pedido? 'todo' = historial completo, 'actual' = lo no cerrado, o el id de un cierre. */
+const inScope = (rec, scope) => (!scope || scope === 'todo' ? true : scope === 'actual' ? !rec.closingId : rec.closingId === scope);
+
+/** Lotes que entran como inventario inicial, por par, según el alcance (los deja el cierre anterior). */
+function carryIn(state, scope) {
+  const out = new Map();
+  const closings = [...(state.closings || [])].sort((a, b) => a.seq - b.seq);
+  if (!scope || scope === 'todo') return out;
+  if (scope === 'actual') {
+    for (const k of closings) out.set(k.pair, k.carry === false ? [] : k.carryLots || []);
+  } else {
+    const target = closings.find((k) => k.id === scope);
+    const prev = target && closings.filter((k) => k.pair === target.pair && k.seq < target.seq).pop();
+    if (prev && prev.carry !== false) out.set(prev.pair, prev.carryLots || []);
+  }
+  return out;
+}
+const lotOut = (l) => ({ tradeId: l.tradeId, exchange: l.exchange, dateUtc: l.dateUtc, qty: str(l.qty), unit: str(l.unit), fee: str(l.fee) });
+const lotIn = (l) => ({ tradeId: l.tradeId, exchange: l.exchange, dateUtc: l.dateUtc, qty: D(l.qty), unit: D(l.unit), fee: D(l.fee), carried: true });
+
 const monthKey = (iso, tz) => { const p = zonedParts(Date.parse(iso), tz); return `${p.year}-${String(p.month).padStart(2, '0')}`; };
 
 /**
  * @param {object} state  { trades, costs, cycles }
- * @param {object} o      { fromMs, toMs, tz }
+ * @param {object} o      { fromMs, toMs, tz, scope: 'todo' (por defecto) | 'actual' | id de un ciclo cerrado }
  */
 function compute(state, o = {}) {
   const tz = o.tz || 'America/Lima';
@@ -72,10 +94,15 @@ function compute(state, o = {}) {
   const issues = [];
   const tradeInfo = new Map();
   const manualCycles = new Map((state.cycles || []).map((c) => [c.id, c]));
+  const scope = o.scope || 'todo';
+  const carry = carryIn(state, scope);
+  // Una operación sin cerrar anterior al último corte de su par se cuenta aquí pero se avisa.
+  const lastCutoff = new Map();
+  if (scope === 'actual' || scope === 'todo') for (const k of state.closings || []) if (!lastCutoff.has(k.pair) || k.cutoffUtc > lastCutoff.get(k.pair)) lastCutoff.set(k.pair, k.cutoffUtc);
 
   // 1) Clasificación de operaciones
   for (const t of state.trades) {
-    if (t.deleted) continue;
+    if (t.deleted || !inScope(t, scope)) continue;
     const vi = validateTrade(t);
     for (const i of vi) issues.push({ ...i, tradeId: t.id, orderId: t.orderId, exchange: t.exchange, pair: t.pair, dateUtc: t.dateUtc });
     let excluded = null;
@@ -89,6 +116,10 @@ function compute(state, o = {}) {
       excluded = `par ${t.pair} incompatible con el ciclo ${t.cycleId} (${manualCycles.get(t.cycleId).pair})`;
       issues.push({ code: 'CICLO_PAR_INCOMPATIBLE', severity: 'error', message: `La operación ${t.pair} no puede pertenecer al ciclo ${manualCycles.get(t.cycleId).name} (${manualCycles.get(t.cycleId).pair}); no se mezclan mercados.`, tradeId: t.id, pair: t.pair, dateUtc: t.dateUtc });
     }
+    if (!excluded && !t.closingId && lastCutoff.has(t.pair) && t.dateUtc < lastCutoff.get(t.pair)) {
+      issues.push({ code: 'ANTERIOR_AL_CIERRE', severity: 'warning', tradeId: t.id, orderId: t.orderId, exchange: t.exchange, pair: t.pair, dateUtc: t.dateUtc,
+        message: 'Es anterior al último ciclo cerrado de este par, pero se registró después; se cuenta en el ciclo actual. Si pertenece al ciclo cerrado, reábrelo y vuelve a cerrarlo.' });
+    }
     tradeInfo.set(t.id, { trade: t, countable: !excluded, excluded });
   }
 
@@ -100,8 +131,9 @@ function compute(state, o = {}) {
     const key = t.cycleId ? `cycle:${t.cycleId}` : `pair:${t.pair}`;
     poolFor(key, t.pair).events.push({ kind: t.side, t, dateUtc: t.dateUtc });
   }
+  for (const pair of carry.keys()) poolFor(`pair:${pair}`, pair);
   for (const c of state.costs || []) {
-    if (c.deleted) continue;
+    if (c.deleted || !inScope(c, scope)) continue;
     const [crypto, fiat] = String(c.pair).split('/');
     const asset = String(c.asset).toUpperCase();
     if (asset !== crypto && asset !== fiat) {
@@ -122,7 +154,7 @@ function compute(state, o = {}) {
   }
 
   const ORDER = { buy: 0, cost: 1, sell: 2 };
-  const cycles = [], allocations = [], costRows = [], feeRows = [];
+  const cycles = [], allocations = [], costRows = [], feeRows = [], endLots = {};
   const pairAgg = new Map();
   const agg = (pair) => {
     if (!pairAgg.has(pair)) {
@@ -142,6 +174,7 @@ function compute(state, o = {}) {
     const inv = new Pool(pool.key);
     const A = agg(pool.pair);
     const isManual = pool.key.startsWith('cycle:');
+    if (!isManual) for (const l of carry.get(pool.pair) || []) inv.add(lotIn(l));
     const manual = isManual ? { id: pool.key.slice(6), gross: ZERO, fees: ZERO, other: ZERO, proceeds: ZERO, cost: ZERO,
       shortfall: false, trades: [], buyExchanges: new Set(), sellExchanges: new Set(), first: null, last: null, unrecognized: ZERO } : null;
     let openingTaken = false;
@@ -255,6 +288,7 @@ function compute(state, o = {}) {
     }
     A.closingInventory.qty = A.closingInventory.qty.plus(inv.qty());
     A.closingInventory.cost = A.closingInventory.cost.plus(inv.value());
+    if (!isManual) endLots[pool.pair] = inv.lots.filter((l) => l.qty.gt(DUST)).map(lotOut);
     for (const lot of inv.lots) {
       if (lot.qty.gt(DUST)) {
         const ti = tradeInfo.get(lot.tradeId);
@@ -286,10 +320,10 @@ function compute(state, o = {}) {
   }
 
   // 3) Controles globales
-  duplicateCheck(state.trades, issues);
+  duplicateCheck(state.trades.filter((t) => inScope(t, scope)), issues);
   const now = Date.now();
   for (const t of state.trades) {
-    if (!t.deleted && t.status === STATUS.PENDING && now - Date.parse(t.dateUtc) > 48 * 3600e3) {
+    if (!t.deleted && inScope(t, scope) && t.status === STATUS.PENDING && now - Date.parse(t.dateUtc) > 48 * 3600e3) {
       issues.push({ code: 'PENDIENTE_ANTIGUA', severity: 'warning', tradeId: t.id, orderId: t.orderId, exchange: t.exchange, pair: t.pair, dateUtc: t.dateUtc,
         message: 'Sigue pendiente después de 48 h. Vuelva a sincronizar/importar para actualizar su estado.' });
     }
@@ -343,7 +377,7 @@ function compute(state, o = {}) {
     pairs, cycles: cycles.sort((a, b) => a.closedAt.localeCompare(b.closedAt)), allocations, costs: costRows, fees: feeRows,
     byExchange: [...byExchange.values()].sort((a, b) => a.pair.localeCompare(b.pair) || a.exchange.localeCompare(b.exchange)),
     byMonth: [...byMonth.values()].sort((a, b) => a.pair.localeCompare(b.pair) || a.month.localeCompare(b.month)),
-    tradeInfo, issues,
+    tradeInfo, issues, scope, endLots,
   };
 }
 

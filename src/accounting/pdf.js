@@ -98,6 +98,7 @@ function buildPdf(rep, ctx) {
     ['Titular', ctx.userName || '-'],
     ...(ctx.userEmail ? [['Email', ctx.userEmail]] : []),
     ['Período', `${ctx.fromLabel || 'desde el inicio'}  al  ${ctx.toLabel || 'hoy'}`],
+    ...(ctx.scopeLabel ? [['Alcance', ctx.scopeLabel]] : []),
     ['Zona horaria', `${tz}${tz === 'America/Lima' ? ' (UTC-05:00)' : ''}`],
     ['Generado', toLocalFull(Date.now(), tz)],
   ];
