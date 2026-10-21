@@ -4,37 +4,45 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ArbiTrack — Iniciar sesión</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#060a13;--card:#0c1120;--green:#10b981;--emerald:#34d399;--red:#f87171;--slate:#94a3b8;--dim:#475569;--txt:#f1f5f9;--border:rgba(255,255,255,0.06)}
+:root{--bg:#05060f;--txt:#d1e4fa;--muted:#c7d3ea;--dim:#9da7ba;--head:#d8ecf8;--violet:#663af3;--red:#f0a38c;--ok:#8fd6c6;--edge:rgba(186,215,247,0.12);--edge-strong:rgba(186,215,247,0.24);
+  --font-ui:'Inter',ui-sans-serif,system-ui,sans-serif;--font-display:'Space Grotesk','Inter',sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
-a{color:var(--emerald);text-decoration:none}
-.box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:36px;width:100%;max-width:420px}
-.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;margin-bottom:24px;justify-content:center}
-.logo svg{width:36px;height:36px}
-h2{font-size:22px;font-weight:800;margin-bottom:6px;text-align:center}
-.sub{font-size:13px;color:var(--slate);margin-bottom:24px;text-align:center}
+body{font-family:var(--font-ui);letter-spacing:-0.01em;color:var(--txt);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;
+  background:conic-gradient(from 180deg at 50% -5%,transparent 45%,rgba(124,145,182,0.18) 49%,rgba(124,145,182,0.3) 50%,rgba(124,145,182,0.18) 51%,transparent 55%) no-repeat,
+  linear-gradient(rgba(186,215,247,0.05) 1px,transparent 1px) 0 0/80px 80px,linear-gradient(90deg,rgba(186,215,247,0.05) 1px,transparent 1px) 0 0/80px 80px,var(--bg)}
+a{color:var(--txt);text-decoration:none}
+a:hover{color:#fff}
+.box{background:rgba(5,6,15,0.97);border-radius:16px;padding:32px;width:100%;max-width:420px;
+  box-shadow:inset 0 1px 1px rgba(216,236,248,0.2),inset 0 24px 48px rgba(168,216,245,0.06),inset 0 0 0 1px var(--edge),0 16px 32px rgba(0,0,0,0.3)}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:500;font-size:20px;margin-bottom:24px;justify-content:center;color:var(--txt)}
+.logo svg{width:32px;height:32px}
+h2{font-family:var(--font-display);font-size:28px;line-height:1.14;font-weight:500;margin-bottom:8px;text-align:center;background:linear-gradient(0deg,#98c0ef,#d8ecf8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{font-size:14px;color:var(--dim);margin-bottom:24px;text-align:center}
 .field{margin-bottom:14px}
-.field label{display:block;font-size:12px;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
-.field input{width:100%;padding:11px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--txt);font-size:14px;outline:none;font-family:inherit}
-.field input:focus{border-color:rgba(16,185,129,0.4)}
-.btn{width:100%;padding:13px;border-radius:10px;background:var(--green);color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;margin-top:8px;font-family:inherit}
-.btn:hover{background:var(--emerald)}
+.field label{display:block;font-family:var(--font-mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.field input{width:100%;padding:11px 12px;border-radius:6px;border:0;background:rgba(199,211,234,0.06);box-shadow:inset 0 0 0 1px var(--edge);color:#fff;font-size:14px;outline:none;font-family:inherit}
+.field input::placeholder{color:rgba(199,211,234,0.6)}
+.field input:focus{box-shadow:inset 0 0 0 1px var(--edge-strong),0 0 0 3px rgba(186,215,247,0.06)}
+.btn{width:100%;padding:12px 24px;border-radius:6px;background:var(--violet);color:#fff;font-size:15px;font-weight:500;border:none;cursor:pointer;margin-top:8px;font-family:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,0.18)}
+.btn:hover{background:#7550f5}
 .btn:disabled{opacity:0.6;cursor:wait}
-.msg{font-size:13px;padding:10px 12px;border-radius:10px;margin-bottom:14px;display:none}
-.msg.err{display:block;background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2)}
-.msg.ok{display:block;background:rgba(16,185,129,0.1);color:var(--emerald);border:1px solid rgba(16,185,129,0.2)}
+.msg{font-size:13px;padding:10px 12px;border-radius:6px;margin-bottom:14px;display:none}
+.msg.err{display:block;background:rgba(228,109,76,0.08);color:var(--red);box-shadow:inset 0 0 0 1px rgba(228,109,76,0.28)}
+.msg.ok{display:block;background:rgba(61,170,148,0.08);color:var(--ok);box-shadow:inset 0 0 0 1px rgba(61,170,148,0.28)}
 .links{display:flex;justify-content:space-between;gap:12px;margin-top:18px;font-size:13px;flex-wrap:wrap}
-.legal{font-size:11px;color:var(--dim);margin-top:18px;text-align:center;line-height:1.5}
+.links a{color:var(--muted)}
+.legal{font-size:12px;color:var(--dim);margin-top:18px;text-align:center;line-height:1.5}
+.legal a{color:var(--txt);text-decoration:underline;text-decoration-color:var(--edge-strong)}
 form{display:none}
 form.on{display:block}
 </style>
 </head>
 <body>
 <div class="box">
-  <a class="logo" href="/" style="color:var(--txt)">
-    <svg viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#10b981" fill-opacity="0.15"/><path d="M12 28L20 12L28 28" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 22H25" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"/><circle cx="20" cy="16" r="2" fill="#10b981"/></svg>
+  <a class="logo" href="/">
+    <svg viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#b6d9fc" fill-opacity="0.15"/><path d="M12 28L20 12L28 28" stroke="#d1e4fa" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 22H25" stroke="#98c0ef" stroke-width="2.5" stroke-linecap="round"/><circle cx="20" cy="16" r="2" fill="#b6d9fc"/></svg>
     ArbiTrack
   </a>
   <div id="msg" class="msg"></div>
