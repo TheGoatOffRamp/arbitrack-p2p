@@ -223,6 +223,7 @@ Fechas como fechas reales de Excel en hora de Lima, importes como números, filt
 | `NODE_ENV` | — | `production` activa cookies `Secure` (solo HTTPS) |
 | `PGSSL` | — | `true` para conectar a PostgreSQL con SSL |
 | `RESEND_API_KEY` | — | Clave de Resend para enviar emails. Sin ella, los emails solo se escriben en el log |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | —, 465 | Alternativa a Resend sin dominio propio (p. ej. Gmail con contraseña de aplicación) |
 | `MAIL_FROM` | — | Remitente, p. ej. `ArbiTrack <no-responder@tu-dominio.com>` (obligatoria con `RESEND_API_KEY`) |
 
 ## 7. Estructura
