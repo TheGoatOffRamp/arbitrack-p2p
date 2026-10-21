@@ -14,6 +14,7 @@ const { buildTrade, validateTrade, isCountable, present, canonicalExchange, slug
 const { rangeBoundary, DEFAULT_TZ, assertTz, toLocalMinute, parseSourceDate } = require('./dates');
 const { D } = require('./money');
 const { parseCsv, parseXlsx } = require('./importers/tabular');
+const { parseXls, isXls } = require('./importers/xls');
 const { analyze } = require('./importers/importer');
 const { ADAPTERS, UNSUPPORTED } = require('./exchanges/adapters');
 const { compute, toJSONSafe } = require('./accounting/engine');
@@ -381,6 +382,7 @@ function createApp(opts = {}) {
     if (b.contentBase64) {
       const buf = Buffer.from(b.contentBase64, 'base64');
       if (/\.xlsx$/i.test(name) || buf.slice(0, 2).toString() === 'PK') return (await parseXlsx(buf)).rows;
+      if (isXls(buf)) return parseXls(buf).rows;
       return parseCsv(buf.toString('utf8')).rows;
     }
     if (typeof b.content === 'string') return parseCsv(b.content, b.delimiter).rows;

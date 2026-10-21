@@ -116,3 +116,31 @@ test('los cuatro archivos se importan automáticamente, sin preguntas, y reimpor
     assert.equal(x.status, 200);
   } finally { await h.close(); }
 });
+
+test('Bybit .xls real (Excel 97-2003): filas en blanco arriba, columnas repetidas y hora UTC-05:00', async () => {
+  const { parseXls } = require('../src/importers/xls');
+  const buf = fs.readFileSync(F('bybit_real.xls'));
+  const a = analyze(parseXls(buf).rows, { filename: 'P2P_Order_History_for_UID_1_18092026_to_21102026.xls' });
+  assert.equal(a.status, 'ok');
+  assert.equal(a.detection.exchange, 'Bybit');
+  const t = byId(a, '2111928046430437376');
+  assert.equal(t.side, 'sell'); assert.equal(t.pair, 'USDT/PEN');
+  assert.equal(t.amount, '943.6141'); assert.equal(t.price, '3.458'); assert.equal(t.total, '3263.017');
+  assert.equal(t.status, 'completado');
+  assert.equal(t.dateUtc, '2026-10-18T21:10:59.000Z');
+  assert.equal(t.counterparty, 'contraparte_01');
+
+  // Por la API, tal como lo envía la página (binario en base64).
+  const h = await startApp();
+  try {
+    const r = await h.call('POST', '/api/v1/import/file', { filename: 'P2P_Order_History.xls', contentBase64: buf.toString('base64'), commit: true });
+    assert.equal(r.status, 200, r.data.error);
+    assert.equal(r.data.result.inserted, 1);
+  } finally { await h.close(); }
+});
+
+test('.xls dañado o que no es Excel: error claro', () => {
+  const { parseXls } = require('../src/importers/xls');
+  const buf = Buffer.from(fs.readFileSync(F('bybit_real.xls')));
+  assert.throws(() => parseXls(buf.subarray(0, 600)), /dañado|no contiene/);
+});

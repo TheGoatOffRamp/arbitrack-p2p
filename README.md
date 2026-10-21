@@ -5,7 +5,7 @@ Registro, seguimiento y control contable de operaciones de arbitraje P2P entre e
 ```bash
 npm install
 npm start          # http://localhost:3001  (solo esta computadora)
-npm test           # 69 pruebas (+10 del modo multiusuario con TEST_DATABASE_URL)
+npm test           # 71 pruebas (+10 del modo multiusuario con TEST_DATABASE_URL)
 npm run ejemplo    # genera examples/ArbiTrack_ejemplo.xlsx con datos ficticios
 ```
 
@@ -148,7 +148,7 @@ Los gráficos usan Chart.js desde internet (CDN); sin conexión, la app funciona
 ```jsonc
 {
   "filename": "binance_p2p.csv",
-  "content": "<texto CSV>",          // o "contentBase64" para CSV/XLSX
+  "content": "<texto CSV>",          // o "contentBase64" para CSV/XLSX/XLS (Excel 97-2003, p. ej. Bybit)
   "exchange": "Binance",             // opcional: forzar exchange
   "tz": "America/Lima",              // opcional: zona de las horas del archivo
   "dateOrder": "DMY",                // opcional si las fechas son ambiguas
@@ -177,7 +177,7 @@ Perfiles incluidos: Binance, Bybit, Bitget, OKX, El Dorado y uno genérico. El g
 | POST / PUT | `/api/v1/trades` · `/api/v1/trades/:id` | Alta manual / edición (queda historial) |
 | DELETE · POST | `/api/v1/trades/:id` · `/api/v1/trades/:id/restore` | Eliminación lógica y restauración |
 | GET | `/api/v1/trades/:id/trace` | **Trazabilidad**: dato original, historial, ciclos y asignaciones FIFO |
-| POST | `/api/v1/import/file` | Importación de CSV/XLSX (§3) |
+| POST | `/api/v1/import/file` | Importación de CSV/XLSX/XLS (§3) |
 | POST | `/api/v1/import` | Importación heredada de la webapp (misma validación) |
 | GET · DELETE | `/api/v1/import/batches` · `/api/v1/import/batches/:id` | Lotes; deshacer un lote |
 | GET / POST / DELETE | `/api/v1/cycles` · `/api/v1/cycles/:id/trades` | Ciclos manuales |
@@ -254,7 +254,7 @@ src/secrets.js               credenciales cifradas
 src/db.js                    PostgreSQL: migraciones, libro y credenciales por usuario
 src/auth.js                  cuentas, sesiones, recuperación de contraseña
 scripts/importar-datos-locales.js   pasar data/ local a una cuenta web
-src/importers/               lectura CSV/XLSX, perfiles por exchange, análisis
+src/importers/               lectura CSV/XLSX/XLS, perfiles por exchange, análisis
 src/exchanges/               clientes API (Binance, Bybit, Bitget) con reintentos
 src/accounting/engine.js     motor FIFO, ciclos, conciliación
 src/accounting/excel.js      reporte Excel

@@ -946,7 +946,7 @@
     <div class="ml" id="ml"></div>
   </div>
 
-  <input type="file" id="import-file" accept=".csv,.txt,.xlsx" multiple style="display:none" onchange="handleImportFile(this)">
+  <input type="file" id="import-file" accept=".csv,.txt,.xlsx,.xls" multiple style="display:none" onchange="handleImportFile(this)">
 
   <script>
     'use strict';
@@ -1442,7 +1442,9 @@
     function handleImportFile(input) { if (input.files && input.files.length) importFiles([...input.files]); input.value = ""; }
     async function readFile(f) {
       const buf = new Uint8Array(await f.arrayBuffer());
-      if (/\.xlsx$/i.test(f.name) || (buf[0] === 0x50 && buf[1] === 0x4b)) {
+      // .xlsx (zip) y .xls de Excel 97-2003 (archivo OLE) viajan en binario
+      const zip = buf[0] === 0x50 && buf[1] === 0x4b, ole = buf[0] === 0xd0 && buf[1] === 0xcf && buf[2] === 0x11 && buf[3] === 0xe0;
+      if (/\.xlsx$/i.test(f.name) || zip || ole) {
         let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
         return { contentBase64: btoa(bin) };
       }
