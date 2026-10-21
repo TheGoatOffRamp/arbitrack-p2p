@@ -20,22 +20,9 @@ test('mailer: Resend con la clave configurada', async () => {
   assert.throws(() => createMailer({ apiKey: 're_test', from: '' }), /MAIL_FROM/);
 });
 
-test('mailer: SMTP (p. ej. Gmail) sin dominio propio', async () => {
-  const sent = [];
-  let opts;
-  const m = createMailer({ apiKey: '', from: '', smtp: { host: 'smtp.gmail.com', port: '465', user: 'yo@gmail.com', pass: 'app-pass' },
-    createTransport: (o) => { opts = o; return { sendMail: async (msg) => sent.push(msg) }; } });
-  assert.equal(m.configured, true);
-  await m.send({ to: 'ana@mail.com', subject: 'Hola', text: 'Texto' });
-  assert.equal(opts.secure, true);
-  assert.deepEqual(opts.auth, { user: 'yo@gmail.com', pass: 'app-pass' });
-  assert.deepEqual(sent[0], { from: 'ArbiTrack <yo@gmail.com>', to: 'ana@mail.com', subject: 'Hola', text: 'Texto' });
-  assert.throws(() => createMailer({ apiKey: '', smtp: { host: 'smtp.gmail.com', user: 'yo@gmail.com' } }), /SMTP_PASS/);
-});
-
 test('mailer: sin clave escribe en el log', async () => {
   const lines = [];
-  const m = createMailer({ apiKey: '', smtp: {}, log: (l) => lines.push(l) });
+  const m = createMailer({ apiKey: '', log: (l) => lines.push(l) });
   assert.equal(m.configured, false);
   await m.send({ to: 'a@b.c', subject: 'Asunto', text: 'enlace' });
   assert.match(lines[0], /a@b\.c.*Asunto/s);

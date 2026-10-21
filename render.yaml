@@ -31,13 +31,6 @@ services:
         sync: false
       - key: MAIL_FROM
         sync: false # p. ej. ArbiTrack <no-responder@arbitrack.pe>
-      # Alternativa sin dominio propio: Gmail (ver docs/PUBLICAR.md §4)
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
 
 databases:
   - name: arbitrack-db

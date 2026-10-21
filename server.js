@@ -32,7 +32,7 @@ async function main() {
     console.log(`ArbiTrack Backend v${VERSION} — http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
     if (multiUser) console.log(`Modo multiusuario (PostgreSQL) · Zona horaria: ${process.env.ARBITRACK_TZ || 'America/Lima'}`);
     else console.log(`Modo local · Datos: ${app.locals.store.dir} · Zona horaria: ${process.env.ARBITRACK_TZ || 'America/Lima'}`);
-    if (multiUser && !process.env.RESEND_API_KEY && !process.env.SMTP_HOST) console.warn('AVISO: sin RESEND_API_KEY ni SMTP_HOST los emails de recuperación de contraseña solo se escriben en el log.');
+    if (multiUser && !process.env.RESEND_API_KEY) console.warn('AVISO: sin RESEND_API_KEY los emails de recuperación de contraseña solo se escriben en el log.');
   });
 
   let cleanup = null;

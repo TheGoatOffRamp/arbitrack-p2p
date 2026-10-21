@@ -47,21 +47,7 @@ PGSSL=true DATABASE_URL="<External Database URL>" ARBITRACK_SECRET="<el de Rende
 3. En tu registrador crea los registros DNS que Render te indique. Render emite el certificado HTTPS solo.
 4. Cambia `ARBITRACK_PUBLIC_URL` a `https://arbitrack.pe` (*Environment* → *Save*; se reinicia solo).
 
-## 4. Emails de recuperación de contraseña
-
-### Opción A, sin dominio propio: Gmail
-
-1. Usa una cuenta de Gmail (mejor una dedicada, p. ej. `arbitrack.soporte@gmail.com`) con la **verificación en dos pasos** activada.
-2. En <https://myaccount.google.com/apppasswords> crea una contraseña de aplicación llamada `ArbiTrack` y copia los 16 caracteres.
-3. En Render → `arbitrack` → *Environment* agrega:
-   - `SMTP_HOST` = `smtp.gmail.com`
-   - `SMTP_USER` = el Gmail
-   - `SMTP_PASS` = la contraseña de aplicación (sin espacios)
-   - `MAIL_FROM` = `ArbiTrack <el Gmail>` (opcional)
-   - Deja `RESEND_API_KEY` vacía: si tiene valor, se usa Resend en lugar de Gmail.
-4. Gmail permite unos 500 emails al día, de sobra para recuperar contraseñas.
-
-### Opción B, con dominio propio: Resend
+## 4. Emails de recuperación de contraseña (Resend)
 
 1. Crea una cuenta en <https://resend.com>.
 2. *Domains → Add domain* → tu dominio. Agrega en tu registrador los registros DNS que te muestra y espera a que diga **Verified**.
