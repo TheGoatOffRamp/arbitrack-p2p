@@ -18,7 +18,7 @@ Tiempo estimado: 1 a 2 horas, la mayor parte esperando que se propaguen los DNS.
 
 1. Crea una cuenta en <https://render.com> e inicia sesión con GitHub.
 2. **New → Blueprint** y elige el repositorio `TheGoatOffRamp/arbitrack-p2p`. Render lee `render.yaml` y propone crear:
-   - `arbitrack` (la web) y `arbitrack-db` (PostgreSQL 16), ambos en Virginia (la región más cercana a Lima).
+   - `arbitrack` (la web) y `arbitrack-db` (PostgreSQL 16), ambos en Frankfurt. **No uses una región de EE.UU.**: Binance, Bybit y Bitget bloquean las APIs desde servidores en EE.UU. (error HTTP 451 al sincronizar).
 3. Te pedirá tres valores:
    - `ARBITRACK_PUBLIC_URL`: por ahora `https://arbitrack.onrender.com` (o el nombre que Render te asigne; lo cambias al tener dominio).
    - `RESEND_API_KEY` y `MAIL_FROM`: déjalos vacíos por ahora (paso 4).

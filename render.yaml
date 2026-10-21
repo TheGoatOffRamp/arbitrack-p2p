@@ -5,7 +5,7 @@ services:
     name: arbitrack
     runtime: node
     plan: starter
-    region: virginia
+    region: frankfurt
     buildCommand: npm ci --omit=dev
     startCommand: node server.js
     healthCheckPath: /health
@@ -35,5 +35,5 @@ services:
 databases:
   - name: arbitrack-db
     plan: basic-256mb
-    region: virginia
+    region: frankfurt
     postgresMajorVersion: "16"
